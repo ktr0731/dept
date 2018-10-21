@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -76,9 +79,32 @@ func (c *addCommand) Run(args []string) int {
 		log.Fatalln(err)
 	}
 
+	b, err = exec.CommandContext(ctx, "git", "show").Output()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	digest := fmt.Sprintf("%x", sha256.New().Sum(b))
+
+	b, err = exec.CommandContext(ctx, "git", "rev-parse", "HEAD").Output()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	rev := string(b)
+
+	b, err = json.MarshalIndent(&dependency{
+		Digest:   digest,
+		Revision: rev,
+	}, "", "  ")
+	io.WriteString(os.Stdout, string(b))
+
 	return 0
 }
 
 func Add() (cli.Command, error) {
 	return &addCommand{}, nil
+}
+
+type dependency struct {
+	Revision string `json:"revision"`
+	Digest   string `json:"digest"`
 }
