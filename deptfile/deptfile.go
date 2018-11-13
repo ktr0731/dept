@@ -11,6 +11,7 @@ import (
 var deptfileName = "dept.toml"
 
 var (
+	// ErrNotFound represents deptfile not found.
 	ErrNotFound = errors.Errorf("%s not found", deptfileName)
 )
 
@@ -22,6 +23,8 @@ type Requirement struct {
 	Name string `toml:"name"`
 }
 
+// Encode receives an io.Writer w and encode itself to w.
+// Encoding format is TOML.
 func (f *File) Encode(w io.Writer) error {
 	if err := toml.NewEncoder(w).Encode(f); err != nil {
 		return errors.Wrap(err, "failed to encode deptfile")
