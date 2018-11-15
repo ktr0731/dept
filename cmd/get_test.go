@@ -1,6 +1,7 @@
 package cmd_test
 
 import (
+	"bytes"
 	"context"
 	"strings"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/ktr0731/dept/cmd"
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/fetcher"
+	"github.com/pkg/errors"
 )
 
 func TestGetRun(t *testing.T) {
@@ -37,7 +39,11 @@ func TestGetRun(t *testing.T) {
 			BuildFunc: func() error { return nil },
 		}
 
-		df := &deptfile.File{Requirements: []*deptfile.Requirement{}}
+		var out bytes.Buffer
+		df := &deptfile.File{
+			Requirements: []*deptfile.Requirement{},
+			Writer:       &out,
+		}
 		cmd, err := cmd.Get(mockUI, mockFetcher, mockBuilder, df)()
 		if err != nil {
 			t.Errorf("Get must not return some errors, but got an error: %s", err)
@@ -49,16 +55,55 @@ func TestGetRun(t *testing.T) {
 			t.Errorf("Run must be 0, but got %d", code)
 		}
 
-		if nr := len(df.Requirements); nr != 1 {
-			t.Errorf("Get must add passed dependency to requirements, but %d dependency found", nr)
-		}
-
 		if n := len(mockFetcher.FetchCalls()); n != 1 {
 			t.Errorf("Fetch must be called once, but actual %d", n)
 		}
 
 		if n := len(mockBuilder.BuildCalls()); n != 1 {
 			t.Errorf("Build must be called once, but actual %d", n)
+		}
+
+		if n := len(df.Requirements); n != 1 {
+			t.Errorf("Get must add passed dependency to requirements, but %d dependency found", n)
+		}
+
+		if out.String() == "" {
+			t.Error("Encode must be called")
+		}
+	})
+
+	t.Run("deptfile is not modified when command failed", func(t *testing.T) {
+		mockUI := newMockUI()
+		mockFetcher := &fetcher.FetcherMock{
+			FetchFunc: func(ctx context.Context, repo string) error { return errors.New("an error") },
+		}
+
+		var out bytes.Buffer
+		df := &deptfile.File{
+			Requirements: []*deptfile.Requirement{},
+			Writer:       &out,
+		}
+		cmd, err := cmd.Get(mockUI, mockFetcher, nil, df)()
+		if err != nil {
+			t.Errorf("Get must not return some errors, but got an error: %s", err)
+		}
+
+		repo := "github.com/ktr0731/go-modules-test"
+		code := cmd.Run([]string{repo})
+		if code != 1 {
+			t.Errorf("Run must be 1, but got %d", code)
+		}
+
+		if n := len(mockFetcher.FetchCalls()); n != 1 {
+			t.Errorf("Fetch must be called once, but actual %d", n)
+		}
+
+		if n := len(df.Requirements); n != 0 {
+			t.Errorf("Get must not add passed dependency to requirements when command failed, but %d dependency found", n)
+		}
+
+		if out.String() != "" {
+			t.Error("Encode must not be called")
 		}
 	})
 }

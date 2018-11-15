@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"os"
 
 	"github.com/ktr0731/dept/builder"
 	"github.com/ktr0731/dept/deptfile"
@@ -23,8 +22,7 @@ var (
 //     a. if go.mod missing, generate go.mod.
 //        (these are doing by Go modules automatically)
 //   3. run 'go build' with Go modules aware mode.
-//   4. move the artifact to user's repository.
-//   5. update own config file.
+//   4. update own config file.
 //
 type getCommand struct {
 	ui      cli.Ui
@@ -66,7 +64,7 @@ func (c *getCommand) Run(args []string) int {
 		}
 
 		c.df.Requirements = append(c.df.Requirements, &deptfile.Requirement{path})
-		c.df.Encode(os.Stdout)
+		c.df.Encode()
 
 		// log.Println("create temp dir")
 		// name, err := ioutil.TempDir("", "dept")
