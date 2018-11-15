@@ -1,10 +1,18 @@
 package cmd
 
 import (
+	"context"
 	"os"
 
+	"github.com/ktr0731/dept/builder"
 	"github.com/ktr0731/dept/deptfile"
+	"github.com/ktr0731/dept/fetcher"
 	"github.com/mitchellh/cli"
+	"github.com/pkg/errors"
+)
+
+var (
+	vendorDir = "vendor"
 )
 
 // getCommand gets a passed Go tool from the remote repository.
@@ -13,13 +21,16 @@ import (
 //   1. clone the remote repository.
 //   2. find go.mod file from the cloned repository.
 //     a. if go.mod missing, generate go.mod.
+//        (these are doing by Go modules automatically)
 //   3. run 'go build' with Go modules aware mode.
 //   4. move the artifact to user's repository.
 //   5. update own config file.
 //
 type getCommand struct {
-	ui cli.Ui
-	df *deptfile.File
+	ui      cli.Ui
+	fetcher fetcher.Fetcher
+	builder builder.Builder
+	df      *deptfile.File
 }
 
 func (c *getCommand) UI() cli.Ui {
@@ -40,9 +51,19 @@ func (c *getCommand) Run(args []string) int {
 			return errShowHelp
 		}
 
-		// ctx := context.Background()
+		ctx := context.Background()
 
 		path := args[0]
+
+		err := c.fetcher.Fetch(ctx, path)
+		if err != nil {
+			return errors.Wrap(err, "failed to fetch passed repository")
+		}
+
+		err = c.builder.Build()
+		if err != nil {
+			return errors.Wrap(err, "failed to build fetched repository")
+		}
 
 		c.df.Requirements = append(c.df.Requirements, &deptfile.Requirement{path})
 		c.df.Encode(os.Stdout)
@@ -73,11 +94,18 @@ func (c *getCommand) Run(args []string) int {
 }
 
 // Get returns an initialized get command instance.
-func Get(ui cli.Ui, df *deptfile.File) cli.CommandFactory {
+func Get(
+	ui cli.Ui,
+	fetcher fetcher.Fetcher,
+	builder builder.Builder,
+	df *deptfile.File,
+) cli.CommandFactory {
 	return func() (cli.Command, error) {
 		return &getCommand{
-			ui: ui,
-			df: df,
+			ui:      ui,
+			fetcher: fetcher,
+			builder: builder,
+			df:      df,
 		}, nil
 	}
 }

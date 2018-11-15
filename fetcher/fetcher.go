@@ -1,3 +1,5 @@
+//go:generate moq -out mock.go . Fetcher
+
 package fetcher
 
 import "context"
