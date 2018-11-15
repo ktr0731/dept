@@ -12,11 +12,13 @@ func TestFile(t *testing.T) {
 	expected := `[[requirements]]
   name = "github.com/ktr0731/evans"
 `
-	f := &deptfile.File{}
+	var buf bytes.Buffer
+	f := &deptfile.File{
+		Writer: &buf,
+	}
 	f.Requirements = append(f.Requirements, &deptfile.Requirement{Name: "github.com/ktr0731/evans"})
 
-	var buf bytes.Buffer
-	err := f.Encode(&buf)
+	err := f.Encode()
 	if err != nil {
 		t.Fatalf("expected Encode has no errors, but got an error: %s", err)
 	}
@@ -27,7 +29,7 @@ func TestFile(t *testing.T) {
 
 func TestLoad(t *testing.T) {
 	t.Run("Load must return ErrNotFound because deptfile missing", func(t *testing.T) {
-		cleanup := deptfile.ChangeDeptfileName("test.toml")
+		cleanup := changeDeptfileName("test.toml")
 		defer cleanup()
 
 		_, err := deptfile.Load()
@@ -38,7 +40,7 @@ func TestLoad(t *testing.T) {
 
 	t.Run("Load must return *File if deptfile found", func(t *testing.T) {
 		const testDeptfile = "test.toml"
-		cleanup := deptfile.ChangeDeptfileName(testDeptfile)
+		cleanup := changeDeptfileName(testDeptfile)
 		defer cleanup()
 
 		f, err := os.Create(testDeptfile)
@@ -50,8 +52,10 @@ func TestLoad(t *testing.T) {
 			os.Remove(testDeptfile)
 		}()
 
-		df := &deptfile.File{}
-		err = df.Encode(f)
+		df := &deptfile.File{
+			Writer: f,
+		}
+		err = df.Encode()
 		if err != nil {
 			t.Fatalf("deptfile must be encode to a file, but got an error: %s", err)
 		}

@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 
+	"github.com/ktr0731/dept/deptfile"
 	"github.com/mitchellh/cli"
 )
 
@@ -24,6 +25,8 @@ func run(c command, f func() error) int {
 	switch err {
 	case errShowHelp:
 		c.UI().Output(c.Help())
+	case deptfile.ErrNotFound:
+		c.UI().Error("deptfile missing. please do 'dept init'")
 	default:
 		c.UI().Error(err.Error())
 	}

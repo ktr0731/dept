@@ -16,10 +16,7 @@ import (
 func TestGetRun(t *testing.T) {
 	t.Run("Run returns code 1 because no arguments passed", func(t *testing.T) {
 		mockUI := newMockUI()
-		cmd, err := cmd.Get(mockUI, nil, nil, nil)()
-		if err != nil {
-			t.Errorf("Get must not return some errors, but got an error: %s", err)
-		}
+		cmd := cmd.NewGet(mockUI, nil, nil)
 
 		code := cmd.Run(nil)
 		if code != 1 {
@@ -36,7 +33,7 @@ func TestGetRun(t *testing.T) {
 			FetchFunc: func(ctx context.Context, repo string) error { return nil },
 		}
 		mockBuilder := &builder.BuilderMock{
-			BuildFunc: func() error { return nil },
+			BuildFunc: func(ctx context.Context, dir string) error { return nil },
 		}
 
 		var out bytes.Buffer
@@ -44,10 +41,12 @@ func TestGetRun(t *testing.T) {
 			Requirements: []*deptfile.Requirement{},
 			Writer:       &out,
 		}
-		cmd, err := cmd.Get(mockUI, mockFetcher, mockBuilder, df)()
-		if err != nil {
-			t.Errorf("Get must not return some errors, but got an error: %s", err)
-		}
+		cleanup := cmd.ChangeDeptfileLoad(func() (*deptfile.File, error) {
+			return df, nil
+		})
+		defer cleanup()
+
+		cmd := cmd.NewGet(mockUI, mockFetcher, mockBuilder)
 
 		repo := "github.com/ktr0731/go-modules-test"
 		code := cmd.Run([]string{repo})
@@ -83,10 +82,12 @@ func TestGetRun(t *testing.T) {
 			Requirements: []*deptfile.Requirement{},
 			Writer:       &out,
 		}
-		cmd, err := cmd.Get(mockUI, mockFetcher, nil, df)()
-		if err != nil {
-			t.Errorf("Get must not return some errors, but got an error: %s", err)
-		}
+		cleanup := cmd.ChangeDeptfileLoad(func() (*deptfile.File, error) {
+			return df, nil
+		})
+		defer cleanup()
+
+		cmd := cmd.NewGet(mockUI, mockFetcher, nil)
 
 		repo := "github.com/ktr0731/go-modules-test"
 		code := cmd.Run([]string{repo})

@@ -10,25 +10,19 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	vendorDir = "vendor"
-)
-
 // getCommand gets a passed Go tool from the remote repository.
 // get generate the artifact as follows.
 //
-//   1. clone the remote repository.
-//   2. find go.mod file from the cloned repository.
-//     a. if go.mod missing, generate go.mod.
-//        (these are doing by Go modules automatically)
-//   3. run 'go build' with Go modules aware mode.
-//   4. update own config file.
+//   1. load deptfile.
+//   2. generate Go code which imports all required tools.
+//   3. run 'go get' with Go modules aware mode to collect dependencies of 2.
+//   4. build binaries.
+//   5. TODO: Gopkg.toml
 //
 type getCommand struct {
 	ui      cli.Ui
 	fetcher fetcher.Fetcher
 	builder builder.Builder
-	df      *deptfile.File
 }
 
 func (c *getCommand) UI() cli.Ui {
@@ -43,72 +37,53 @@ func (c *getCommand) Synopsis() string {
 	return "Get new CLI tool as a dependency"
 }
 
+// Used only mocking
+var deptfileLoad func() (*deptfile.File, error) = deptfile.Load
+
 func (c *getCommand) Run(args []string) int {
 	return run(c, func() error {
 		if len(args) != 1 {
 			return errShowHelp
 		}
 
+		df, err := deptfileLoad()
+		if err != nil {
+			return err
+		}
+
 		ctx := context.Background()
 
-		path := args[0]
+		repo := args[0]
 
-		err := c.fetcher.Fetch(ctx, path)
+		err = c.fetcher.Fetch(ctx, repo)
 		if err != nil {
 			return errors.Wrap(err, "failed to fetch passed repository")
 		}
 
-		err = c.builder.Build()
+		err = c.builder.Build(ctx, fetcher.VendorDir(repo))
 		if err != nil {
 			return errors.Wrap(err, "failed to build fetched repository")
 		}
 
-		c.df.Requirements = append(c.df.Requirements, &deptfile.Requirement{path})
-		c.df.Encode()
-
-		// log.Println("create temp dir")
-		// name, err := ioutil.TempDir("", "dept")
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-		// // defer os.RemoveAll(name)
-		//
-		// log.Println("created: ", name)
-		//
-		// err = exec.CommandContext(ctx, "git", "clone", fmt.Sprintf("https://%s", path), name).Run()
-		// if err != nil {
-		// 	log.Fatal(err)
-		// }
-		//
-		// log.Println("cloned: ", path)
-		//
-		// modPath := filepath.Join(name, path, "go.mod")
-		// if _, err := os.Stat(modPath); os.IsNotExist(err) {
-		// 	log.Println("go.mod not found")
-		// }
+		df.Requirements = append(df.Requirements, &deptfile.Requirement{repo})
+		err = df.Encode()
+		if err != nil {
+			return errors.Wrap(err, "failed to encode deptfile")
+		}
 
 		return nil
 	})
 }
 
-// Get returns an initialized get command instance.
-func Get(
+// NewGet returns an initialized get command instance.
+func NewGet(
 	ui cli.Ui,
 	fetcher fetcher.Fetcher,
 	builder builder.Builder,
-	df *deptfile.File,
-) cli.CommandFactory {
-	return func() (cli.Command, error) {
-		return &getCommand{
-			ui:      ui,
-			fetcher: fetcher,
-			builder: builder,
-			df:      df,
-		}, nil
+) cli.Command {
+	return &getCommand{
+		ui:      ui,
+		fetcher: fetcher,
+		builder: builder,
 	}
-}
-
-type dependency struct {
-	Revision string `json:"revision"`
-	Digest   string `json:"digest"`
 }

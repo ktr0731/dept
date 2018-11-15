@@ -8,7 +8,10 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-version"
+	"github.com/ktr0731/dept/builder"
 	"github.com/ktr0731/dept/cmd"
+	"github.com/ktr0731/dept/deptfile"
+	"github.com/ktr0731/dept/fetcher"
 	"github.com/mitchellh/cli"
 )
 
@@ -29,10 +32,30 @@ func main() {
 	}
 
 	app := cli.NewCLI("dept", "0.1.0")
-	app.Commands = map[string]cli.CommandFactory{
-		"get": cmd.Get,
-	}
 	app.Args = os.Args[1:]
+
+	// TODO: move
+	df, err := deptfile.Load()
+	if app.Subcommand() != "init" && err == deptfile.ErrNotFound {
+		fmt.Fprintf(os.Stderr, "deptfile missing. please do 'dept init'\n")
+		os.Exit(1)
+	} else if app.Subcommand() != "init" && err != nil {
+		log.Fatalln(err)
+	}
+
+	ui := &cli.BasicUi{
+		Reader:      os.Stdin,
+		Writer:      os.Stdout,
+		ErrorWriter: os.Stderr,
+	}
+
+	fetcher := fetcher.New()
+	builder := builder.New()
+
+	app.Commands = map[string]cli.CommandFactory{
+		"init": cmd.Init(ui),
+		"get":  cmd.Get(ui, fetcher, builder, df),
+	}
 	code, err := app.Run()
 	if err != nil {
 		log.Fatalln(err)

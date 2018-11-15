@@ -8,24 +8,32 @@ import (
 	"github.com/pkg/errors"
 )
 
-var deptfileName = "dept.toml"
+var DeptfileName = "dept.toml"
 
 var (
 	// ErrNotFound represents deptfile not found.
-	ErrNotFound = errors.Errorf("%s not found", deptfileName)
+	ErrNotFound = errors.Errorf("%s not found", DeptfileName)
+	// ErrAlreadyExist represents deptfile alredy exist.
+	ErrAlreadyExist = errors.New("already exist")
 )
 
 type File struct {
 	Requirements []*Requirement `toml:"requirements"`
+
+	Writer io.Writer `toml:"-"`
 }
 
 type Requirement struct {
 	Name string `toml:"name"`
 }
 
-// Encode receives an io.Writer w and encode itself to w.
+// Encode encodes itself to f.Writer. If f.Writer is nil, os.Stdout will be used instead.
 // Encoding format is TOML.
-func (f *File) Encode(w io.Writer) error {
+func (f *File) Encode() error {
+	w := f.Writer
+	if w == nil {
+		w = os.Stdout
+	}
 	if err := toml.NewEncoder(w).Encode(f); err != nil {
 		return errors.Wrap(err, "failed to encode deptfile")
 	}
@@ -35,14 +43,14 @@ func (f *File) Encode(w io.Writer) error {
 // Load loads deptfile from current directory.
 // If deptfile not found, Load returns ErrNotFound.
 func Load() (*File, error) {
-	if _, err := os.Stat(deptfileName); os.IsNotExist(err) {
+	if _, err := os.Stat(DeptfileName); os.IsNotExist(err) {
 		return nil, ErrNotFound
 	}
 
 	var f File
-	_, err := toml.DecodeFile(deptfileName, &f)
+	_, err := toml.DecodeFile(DeptfileName, &f)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to open or decode %s", deptfileName)
+		return nil, errors.Wrapf(err, "failed to open or decode %s", DeptfileName)
 	}
 
 	return &f, nil

@@ -1,9 +1,11 @@
-package deptfile
+package deptfile_test
 
-func ChangeDeptfileName(name string) func() {
-	old := deptfileName
-	deptfileName = name
+import "github.com/ktr0731/dept/deptfile"
+
+func changeDeptfileName(name string) func() {
+	old := deptfile.DeptfileName
+	deptfile.DeptfileName = name
 	return func() {
-		deptfileName = old
+		deptfile.DeptfileName = old
 	}
 }
