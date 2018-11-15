@@ -1,7 +1,9 @@
 package fetcher
 
 import (
+	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -26,7 +28,7 @@ type mockFetcher struct {
 //
 // vendor-test is used to the destination of mockFetcher. It is specified by mockFetcher.Dir.
 // If vendor-test is not exist, Fetch creates it.
-func (f *mockFetcher) Fetch(repo string) error {
+func (f *mockFetcher) Fetch(ctx context.Context, repo string) error {
 	dir := filepath.Join(append([]string{f.Dir}, strings.Split(repo, "/")...)...)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		err := os.MkdirAll(dir, 0755)
@@ -34,6 +36,24 @@ func (f *mockFetcher) Fetch(repo string) error {
 			return errors.Wrapf(err, "failed to create directories: %s", dir)
 		}
 	}
+
+	pwd, err := os.Getwd()
+	if err != nil {
+		return errors.Wrap(err, "failed to get current directory")
+	}
+	defer os.Chdir(pwd)
+	os.Chdir(dir)
+
+	if err := exec.CommandContext(ctx, "git", "init").Run(); err != nil {
+		return errors.Wrap(err, "failed to init passed repo as a Git repository")
+	}
+
+	// To run `go build` as Go modules aware mode, we need to set origin as a GitHub repository.
+	// GitHub repository URL has no meaning.
+	if err := exec.CommandContext(ctx, "git", "remote", "add", "origin", "https://github.com/ktr0731/evans").Run(); err != nil {
+		return errors.Wrap(err, "failed to set temporary origin")
+	}
+
 	return nil
 }
 
@@ -41,7 +61,7 @@ func (f *mockFetcher) Fetch(repo string) error {
 func (f *mockFetcher) Cleanup() error {
 	err := os.RemoveAll(f.Dir)
 	if err != nil {
-		return errors.Wrapf(err, "failed to remove test vendor directory: %s", err)
+		return errors.Wrap(err, "failed to remove test vendor directory")
 	}
 	return nil
 }

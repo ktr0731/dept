@@ -1,12 +1,14 @@
 package fetcher
 
+import "context"
+
 type Fetcher interface {
-	Fetch(repo string) error
+	Fetch(ctx context.Context, repo string) error
 }
 
 type gitFetcher struct{}
 
-func (f *gitFetcher) Fetch(repo string) error {
+func (f *gitFetcher) Fetch(ctx context.Context, repo string) error {
 	return nil
 }
 
