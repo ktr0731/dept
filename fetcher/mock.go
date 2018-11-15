@@ -37,6 +37,15 @@ func (f *mockFetcher) Fetch(repo string) error {
 	return nil
 }
 
+// Cleanup cleans up all directories used by mockFetcher.
+func (f *mockFetcher) Cleanup() error {
+	err := os.RemoveAll(f.Dir)
+	if err != nil {
+		return errors.Wrapf(err, "failed to remove test vendor directory: %s", err)
+	}
+	return nil
+}
+
 func NewMock() *mockFetcher {
 	return &mockFetcher{Dir: "vendor-test"}
 }

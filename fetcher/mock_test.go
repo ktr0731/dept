@@ -10,7 +10,7 @@ import (
 
 func TestNewMock(t *testing.T) {
 	f := fetcher.NewMock()
-	defer os.RemoveAll(f.Dir)
+	defer f.Cleanup()
 
 	err := f.Fetch("foo/bar/baz")
 	if err != nil {
