@@ -1,4 +1,4 @@
-package gomod_test
+package deptfile_test
 
 import (
 	"context"
@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/ktr0731/dept/gomod"
-	"github.com/ktr0731/dept/gomod/internal/gomodutil"
+	"github.com/ktr0731/dept/deptfile"
+	"github.com/ktr0731/dept/deptfile/internal/deptfileutil"
 )
 
 // setupEnv creates a new temp dir for testing.
@@ -28,11 +28,11 @@ func setupEnv(t *testing.T) func() {
 		t.Fatalf("failed to get current dir: %s", err)
 	}
 
-	err = gomodutil.Copy(filepath.Join(dir, gomod.DeptfileName), filepath.Join("testdata", gomod.DeptfileName))
+	err = deptfileutil.Copy(filepath.Join(dir, deptfile.DeptfileName), filepath.Join("testdata", deptfile.DeptfileName))
 	if err != nil {
 		t.Fatalf("failed to open and read testdata/gotool.mod: %s", err)
 	}
-	err = gomodutil.Copy(filepath.Join(dir, gomod.DeptfileSumName), filepath.Join("testdata", gomod.DeptfileSumName))
+	err = deptfileutil.Copy(filepath.Join(dir, deptfile.DeptfileSumName), filepath.Join("testdata", deptfile.DeptfileSumName))
 	if err != nil {
 		t.Fatalf("failed to open and read testdata/gotool.mod: %s", err)
 	}
@@ -49,12 +49,12 @@ func TestLoad(t *testing.T) {
 		cleanup := setupEnv(t)
 		defer cleanup()
 
-		if err := os.Remove(gomod.DeptfileName); err != nil {
+		if err := os.Remove(deptfile.DeptfileName); err != nil {
 			t.Fatalf("failed to remove go.mod from the temp dir: %s", err)
 		}
 
-		_, err := gomod.Load(context.Background())
-		if err != gomod.ErrNotFound {
+		_, err := deptfile.Load(context.Background())
+		if err != deptfile.ErrNotFound {
 			t.Fatalf("Load must return ErrNotFound, but got %s", err)
 		}
 	})
@@ -63,7 +63,7 @@ func TestLoad(t *testing.T) {
 		cleanup := setupEnv(t)
 		defer cleanup()
 
-		m, err := gomod.Load(context.Background())
+		m, err := deptfile.Load(context.Background())
 		if err != nil {
 			t.Errorf("deptfile must be load by Load, but got an error: %s", err)
 		}

@@ -1,3 +1,3 @@
-// Package deptfile provides the schema to describe Go tool dependencies
-// which are managed by dept.
+// Package deptfile provides JSON output format for 'go mod edit -json'.
+// Defined types in deptfile package are copied from 'go help mod edit'.
 package deptfile

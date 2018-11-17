@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"go/format"
 	"io"
-
-	"github.com/ktr0731/dept/deptfile"
 )
 
 var tmpl = `package tools
@@ -17,10 +15,10 @@ import (
 )
 `
 
-func Generate(w io.Writer, df *deptfile.File) {
+func Generate(w io.Writer, paths []string) {
 	var s string
-	for _, r := range df.Requirements {
-		s += fmt.Sprintf("_ \"%s\"\n", r.Name)
+	for _, p := range paths {
+		s += fmt.Sprintf("_ \"%s\"\n", p)
 	}
 	b, err := format.Source([]byte(fmt.Sprintf(tmpl, s)))
 	if err != nil {

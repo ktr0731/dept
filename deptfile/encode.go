@@ -1,4 +1,4 @@
-package gomod
+package deptfile
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/ktr0731/dept/gomod/internal/gomodutil"
+	"github.com/ktr0731/dept/deptfile/internal/deptfileutil"
 	"github.com/pkg/errors"
 )
 
@@ -42,10 +42,10 @@ func Load(ctx context.Context) (*GoMod, error) {
 	}
 	defer os.RemoveAll(dir)
 
-	if err := gomodutil.Copy(filepath.Join(dir, "go.mod"), DeptfileName); err != nil {
+	if err := deptfileutil.Copy(filepath.Join(dir, "go.mod"), DeptfileName); err != nil {
 		return nil, err
 	}
-	if err := gomodutil.Copy(filepath.Join(dir, "go.sum"), DeptfileSumName); err != nil {
+	if err := deptfileutil.Copy(filepath.Join(dir, "go.sum"), DeptfileSumName); err != nil {
 		return nil, err
 	}
 

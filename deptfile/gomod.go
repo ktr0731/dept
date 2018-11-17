@@ -1,4 +1,4 @@
-package gomod
+package deptfile
 
 type Module struct {
 	Path    string

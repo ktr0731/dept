@@ -1,4 +1,4 @@
-package gomodutil
+package deptfileutil
 
 import (
 	"io"
