@@ -1,11 +1,15 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"os"
 
 	"github.com/ktr0731/dept/builder"
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/fetcher"
+	"github.com/ktr0731/dept/filegen"
 	"github.com/mitchellh/cli"
 	"github.com/pkg/errors"
 )
@@ -38,7 +42,7 @@ func (c *getCommand) Synopsis() string {
 }
 
 // Used only mocking
-var deptfileLoad func() (*deptfile.File, error) = deptfile.Load
+var deptfileLoad func(context.Context) (*deptfile.GoMod, error) = deptfile.Load
 
 func (c *getCommand) Run(args []string) int {
 	return run(c, func() error {
@@ -46,14 +50,24 @@ func (c *getCommand) Run(args []string) int {
 			return errShowHelp
 		}
 
-		df, err := deptfileLoad()
+		ctx := context.Background()
+
+		df, err := deptfileLoad(ctx)
 		if err != nil {
 			return err
 		}
 
-		ctx := context.Background()
-
 		repo := args[0]
+
+		requires := make([]string, 0, len(df.Require))
+		for _, r := range df.Require {
+			requires = append(requires, r.Path)
+		}
+
+		var out bytes.Buffer
+		filegen.Generate(&out, requires)
+
+		io.Copy(os.Stdout, &out)
 
 		err = c.fetcher.Fetch(ctx, repo)
 		if err != nil {
@@ -63,12 +77,6 @@ func (c *getCommand) Run(args []string) int {
 		err = c.builder.Build(ctx, fetcher.VendorDir(repo))
 		if err != nil {
 			return errors.Wrap(err, "failed to build fetched repository")
-		}
-
-		df.Requirements = append(df.Requirements, &deptfile.Requirement{repo})
-		err = df.Encode()
-		if err != nil {
-			return errors.Wrap(err, "failed to encode deptfile")
 		}
 
 		return nil

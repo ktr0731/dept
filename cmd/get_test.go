@@ -37,12 +37,11 @@ func TestGetRun(t *testing.T) {
 		}
 
 		var out bytes.Buffer
-		df := &deptfile.File{
-			Requirements: []*deptfile.Requirement{},
-			Writer:       &out,
+		m := &deptfile.GoMod{
+			Require: []deptfile.Require{},
 		}
-		cleanup := cmd.ChangeDeptfileLoad(func() (*deptfile.File, error) {
-			return df, nil
+		cleanup := cmd.ChangeDeptfileLoad(func(context.Context) (*deptfile.GoMod, error) {
+			return m, nil
 		})
 		defer cleanup()
 
@@ -62,7 +61,7 @@ func TestGetRun(t *testing.T) {
 			t.Errorf("Build must be called once, but actual %d", n)
 		}
 
-		if n := len(df.Requirements); n != 1 {
+		if n := len(m.Require); n != 1 {
 			t.Errorf("Get must add passed dependency to requirements, but %d dependency found", n)
 		}
 
@@ -78,12 +77,11 @@ func TestGetRun(t *testing.T) {
 		}
 
 		var out bytes.Buffer
-		df := &deptfile.File{
-			Requirements: []*deptfile.Requirement{},
-			Writer:       &out,
+		m := &deptfile.GoMod{
+			Require: []deptfile.Require{},
 		}
-		cleanup := cmd.ChangeDeptfileLoad(func() (*deptfile.File, error) {
-			return df, nil
+		cleanup := cmd.ChangeDeptfileLoad(func(context.Context) (*deptfile.GoMod, error) {
+			return m, nil
 		})
 		defer cleanup()
 
@@ -99,7 +97,7 @@ func TestGetRun(t *testing.T) {
 			t.Errorf("Fetch must be called once, but actual %d", n)
 		}
 
-		if n := len(df.Requirements); n != 0 {
+		if n := len(m.Require); n != 0 {
 			t.Errorf("Get must not add passed dependency to requirements when command failed, but %d dependency found", n)
 		}
 

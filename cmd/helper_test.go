@@ -1,8 +1,12 @@
 package cmd
 
-import "github.com/ktr0731/dept/deptfile"
+import (
+	"context"
 
-func ChangeDeptfileLoad(f func() (*deptfile.File, error)) func() {
+	"github.com/ktr0731/dept/deptfile"
+)
+
+func ChangeDeptfileLoad(f func(context.Context) (*deptfile.GoMod, error)) func() {
 	deptfileLoad = f
 	return func() {
 		deptfileLoad = deptfile.Load

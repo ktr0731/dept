@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"os"
+	"context"
 
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/mitchellh/cli"
@@ -27,20 +27,8 @@ func (c *initCommand) Synopsis() string {
 
 func (c *initCommand) Run(args []string) int {
 	return run(c, func() error {
-		if _, err := os.Stat(deptfile.DeptfileName); err == nil {
-			return deptfile.ErrAlreadyExist
-		}
-
-		f, err := os.Create(deptfile.DeptfileName)
-		if err != nil {
-			return errors.Wrap(err, "failed to create deptfile")
-		}
-		defer f.Close()
-
-		df := &deptfile.File{Requirements: []*deptfile.Requirement{}}
-		df.Writer = f
-		if err := df.Encode(); err != nil {
-			return errors.Wrap(err, "failed to write the initial content to deptfile")
+		if err := deptfile.Create(context.Background()); err != nil {
+			return errors.Wrap(err, "failed to create a new deptfile")
 		}
 		return nil
 	})
