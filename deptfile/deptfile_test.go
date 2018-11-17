@@ -2,7 +2,9 @@ package deptfile_test
 
 import (
 	"context"
+	"flag"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,6 +12,18 @@ import (
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/deptfile/internal/deptfileutil"
 )
+
+var verbose = flag.Bool("verbose", false, "verbose mode")
+var l *log.Logger
+
+func init() {
+	flag.Parse()
+	if *verbose {
+		l = log.New(os.Stderr, "[debug] ", log.LstdFlags|log.Lshortfile)
+	} else {
+		l = log.New(ioutil.Discard, "[debug] ", log.Lshortfile)
+	}
+}
 
 // setupEnv creates a new temp dir for testing.
 // Also setupEnv copies go.mod and go.sum from testdata to the temp dir.
@@ -22,6 +36,7 @@ func setupEnv(t *testing.T) func() {
 	if err != nil {
 		t.Fatalf("failed to create a temp dir: %s", err)
 	}
+	l.Printf("setupEnv: created a temp dir %s\n", dir)
 
 	pwd, err := os.Getwd()
 	if err != nil {
@@ -42,6 +57,39 @@ func setupEnv(t *testing.T) func() {
 		os.Chdir(pwd)
 		os.RemoveAll(dir)
 	}
+}
+
+func TestCreate(t *testing.T) {
+	t.Run("Create must return ErrAlreadyExist because deptfile exists", func(t *testing.T) {
+		cleanup := setupEnv(t)
+		defer cleanup()
+
+		err := deptfile.Create(context.Background())
+		if err == nil {
+			t.Error("Create must return an error, but got nil")
+		}
+	})
+
+	t.Run("Create must not return errors", func(t *testing.T) {
+		cleanup := setupEnv(t)
+		defer cleanup()
+
+		if err := os.Remove(deptfile.DeptfileName); err != nil {
+			t.Fatalf("failed to remove go.mod from the temp dir: %s", err)
+		}
+		if err := os.Remove(deptfile.DeptfileSumName); err != nil {
+			t.Fatalf("failed to remove go.sum from the temp dir: %s", err)
+		}
+
+		err := deptfile.Create(context.Background())
+		if err != nil {
+			t.Fatalf("Create must not return an error, but got: %s", err)
+		}
+
+		if _, err := os.Stat(deptfile.DeptfileName); os.IsNotExist(err) {
+			t.Error("after Create called, deptfile is in current dir, but missing")
+		}
+	})
 }
 
 func TestLoad(t *testing.T) {
@@ -65,11 +113,11 @@ func TestLoad(t *testing.T) {
 
 		m, err := deptfile.Load(context.Background())
 		if err != nil {
-			t.Errorf("deptfile must be load by Load, but got an error: %s", err)
+			t.Fatalf("deptfile must be load by Load, but got an error: %s", err)
 		}
 
 		if n := len(m.Require); n != 6 {
-			t.Errorf("number of required dependecies must be 3, but actual %d", n)
+			t.Errorf("number of required dependecies must be 6, but actual %d", n)
 		}
 	})
 }

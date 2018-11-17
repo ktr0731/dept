@@ -17,6 +17,8 @@ type Workspace struct {
 	// SourcePath is the root path for finding go.mod and go.sum.
 	// If SourcePath is empty, SourcePath is the Git project root.
 	SourcePath string
+	// DoNotCopy don't copy gotool.mod and gotool.sum to the workspace.
+	DoNotCopy bool
 }
 
 // Do copies from the project gotool.mod to a temporary workspace
@@ -49,14 +51,25 @@ func (w *Workspace) Do(f func(projectDir string)) error {
 	os.Chdir(dir)
 	defer os.Chdir(cwd)
 
-	if err := deptfileutil.Copy("go.mod", filepath.Join(cwd, DeptfileName)); err != nil {
-		return errors.Wrap(err, "failed to copy gotool.mod to the workspace")
-	}
-	if err := deptfileutil.Copy("go.sum", filepath.Join(cwd, DeptfileSumName)); err != nil {
-		return errors.Wrap(err, "failed to copy gotool.sum to the workspace")
+	if !w.DoNotCopy {
+		if err := deptfileutil.Copy("go.mod", filepath.Join(cwd, DeptfileName)); err != nil {
+			return errors.Wrap(err, "failed to copy gotool.mod to the workspace")
+		}
+		if err := deptfileutil.Copy("go.sum", filepath.Join(cwd, DeptfileSumName)); err != nil {
+			return errors.Wrap(err, "failed to copy gotool.sum to the workspace")
+		}
 	}
 
 	f(cwd)
+
+	if err := deptfileutil.Copy(filepath.Join(cwd, DeptfileName), "go.mod"); err != nil {
+		return errors.Wrap(err, "failed to copy go.mod to current dir")
+	}
+	if !w.DoNotCopy {
+		if err := deptfileutil.Copy(filepath.Join(cwd, DeptfileSumName), "go.sum"); err != nil {
+			return errors.Wrap(err, "failed to copy go.sum to current dir")
+		}
+	}
 
 	return nil
 }

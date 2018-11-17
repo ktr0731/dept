@@ -4,12 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
 
-	"github.com/ktr0731/dept/deptfile/internal/deptfileutil"
 	"github.com/pkg/errors"
 )
 
@@ -32,32 +29,25 @@ func Create(ctx context.Context) error {
 		return ErrAlreadyExist
 	}
 
-	dir, err := ioutil.TempDir("", "")
+	var err error
+	w := &Workspace{
+		SourcePath: ".",
+		DoNotCopy:  true,
+	}
+	werr := w.Do(func(string) {
+		// TODO: module name
+		err = exec.CommandContext(ctx, "go", "mod", "init", "tools").Run()
+		if err != nil {
+			err = errors.Wrap(err, "failed to init Go modules")
+			return
+		}
+	})
+	if werr != nil {
+		return errors.Wrap(werr, "failed to setup a workspace")
+	}
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(dir)
-
-	pwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	os.Chdir(dir)
-	defer os.Chdir(pwd)
-
-	// TODO: module name
-	if err := exec.CommandContext(ctx, "go", "mod", "init", "tools").Run(); err != nil {
-		return err
-	}
-
-	deptfileutil.Copy(filepath.Join(pwd, DeptfileName), filepath.Join(dir, "go.mod"))
-	deptfileutil.Copy(filepath.Join(pwd, DeptfileSumName), filepath.Join(dir, "go.sum"))
-
-	f, err := os.Create(DeptfileName)
-	if err != nil {
-		return errors.Wrap(err, "failed to create deptfile")
-	}
-	defer f.Close()
 
 	return nil
 }
@@ -73,34 +63,37 @@ func Load(ctx context.Context) (*GoMod, error) {
 		return nil, ErrNotFound
 	}
 
-	dir, err := ioutil.TempDir("", "")
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create a temp dir")
-	}
-	defer os.RemoveAll(dir)
-
-	if err := deptfileutil.Copy(filepath.Join(dir, "go.mod"), DeptfileName); err != nil {
-		return nil, err
-	}
-	if err := deptfileutil.Copy(filepath.Join(dir, "go.sum"), DeptfileSumName); err != nil {
-		return nil, err
-	}
-
-	os.Chdir(dir)
-
-	var out, eout bytes.Buffer
-	cmd := exec.CommandContext(ctx, "go", "mod", "edit", "-json")
-	cmd.Stdout = &out
-	cmd.Stderr = &eout
-	if err := cmd.Run(); err != nil {
-		return nil, errors.Wrapf(err, "failed to execute 'go mod edit -json': %s", eout.String())
-	}
-
 	var m GoMod
-	err = json.NewDecoder(&out).Decode(&m)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to open or decode %s", DeptfileName)
+	var err error
+	w := &Workspace{
+		SourcePath: ".",
 	}
+	werr := w.Do(func(string) {
+		var out, eout bytes.Buffer
+		cmd := exec.CommandContext(ctx, "go", "mod", "edit", "-json")
+		cmd.Stdout = &out
+		cmd.Stderr = &eout
+		if err := cmd.Run(); err != nil {
+			err = errors.Wrapf(err, "failed to execute 'go mod edit -json': %s", eout.String())
+			return
+		}
 
+		if e := eout.String(); e != "" {
+			err = errors.New(e)
+			return
+		}
+
+		err = json.NewDecoder(&out).Decode(&m)
+		if err != nil {
+			err = errors.Wrapf(err, "failed to open or decode %s", DeptfileName)
+			return
+		}
+	})
+	if werr != nil {
+		return nil, errors.Wrap(werr, "failed to setup a workspace")
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "an error occurred in the workspace")
+	}
 	return &m, nil
 }
