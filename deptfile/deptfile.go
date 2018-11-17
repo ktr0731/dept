@@ -25,6 +25,43 @@ var (
 	ErrAlreadyExist = errors.New("already exist")
 )
 
+// Create creates a new deptfile.
+// If already created, Create returns ErrAlreadyExist.
+func Create(ctx context.Context) error {
+	if _, err := os.Stat(DeptfileName); err == nil {
+		return ErrAlreadyExist
+	}
+
+	dir, err := ioutil.TempDir("", "")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+
+	pwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	os.Chdir(dir)
+	defer os.Chdir(pwd)
+
+	// TODO: module name
+	if err := exec.CommandContext(ctx, "go", "mod", "init", "tools").Run(); err != nil {
+		return err
+	}
+
+	deptfileutil.Copy(filepath.Join(pwd, DeptfileName), filepath.Join(dir, "go.mod"))
+	deptfileutil.Copy(filepath.Join(pwd, DeptfileSumName), filepath.Join(dir, "go.sum"))
+
+	f, err := os.Create(DeptfileName)
+	if err != nil {
+		return errors.Wrap(err, "failed to create deptfile")
+	}
+	defer f.Close()
+
+	return nil
+}
+
 // Load loads deptfile from current directory.
 // If deptfile not found, Load returns ErrNotFound.
 //
