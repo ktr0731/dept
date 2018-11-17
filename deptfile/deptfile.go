@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
+var (
 	DeptfileName    = "gotool.mod"
 	DeptfileSumName = "gotool.sum"
 )
