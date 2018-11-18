@@ -77,8 +77,9 @@ func TestGetRun(t *testing.T) {
 
 	t.Run("Run returns code 0 normally", func(t *testing.T) {
 		cases := map[string]struct {
-			m    *deptfile.GoMod
-			args []string
+			m      *deptfile.GoMod
+			args   []string
+			update bool
 		}{
 			"get a new tool": {args: []string{"github.com/ktr0731/evans"}},
 			"update a tool": {
@@ -87,9 +88,10 @@ func TestGetRun(t *testing.T) {
 						{Path: "github.com/ktr0731/evans"},
 					},
 				},
-				args: []string{"-u", "github.com/ktr0731/evans"},
+				args:   []string{"github.com/ktr0731/evans"},
+				update: true,
 			},
-			"-u also works if the specified tool is not found": {args: []string{"-u", "github.com/ktr0731/evans"}},
+			"-u also works if the specified tool is not found": {args: []string{"github.com/ktr0731/evans"}, update: true},
 		}
 
 		for name, c := range cases {
@@ -109,13 +111,25 @@ func TestGetRun(t *testing.T) {
 				workspace := &deptfile.Workspace{SourcePath: "testdata"}
 				cmd := cmd.NewGet(mockUI, mockGoCMD, workspace)
 
-				code := cmd.Run(c.args)
+				var args []string
+				if c.update {
+					args = append([]string{"-u"}, c.args...)
+				} else {
+					args = c.args
+				}
+				code := cmd.Run(args)
 				if code != 0 {
 					t.Errorf("Run must return 0, but got %d (err = %s)", code, mockUI.ErrorWriter().String())
 				}
 
-				if n := len(mockGoCMD.GetCalls()); n != 1 {
-					t.Errorf("Get must be called once, but actual %d", n)
+				if c.update {
+					if n := len(mockGoCMD.GetCalls()); n != 2 {
+						t.Errorf("Get must be called twice, but actual %d", n)
+					}
+				} else {
+					if n := len(mockGoCMD.GetCalls()); n != 1 {
+						t.Errorf("Get must be called once, but actual %d", n)
+					}
 				}
 
 				if n := len(mockGoCMD.BuildCalls()); n != 1 {

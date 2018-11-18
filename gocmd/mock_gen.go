@@ -9,8 +9,9 @@ import (
 )
 
 var (
-	lockCommandMockBuild sync.RWMutex
-	lockCommandMockGet   sync.RWMutex
+	lockCommandMockBuild   sync.RWMutex
+	lockCommandMockGet     sync.RWMutex
+	lockCommandMockModTidy sync.RWMutex
 )
 
 // CommandMock is a mock implementation of Command.
@@ -19,11 +20,14 @@ var (
 //
 //         // make and configure a mocked Command
 //         mockedCommand := &CommandMock{
-//             BuildFunc: func(ctx context.Context, pkgs ...string) error {
+//             BuildFunc: func(ctx context.Context, args ...string) error {
 // 	               panic("TODO: mock out the Build method")
 //             },
-//             GetFunc: func(ctx context.Context, pkgs ...string) error {
+//             GetFunc: func(ctx context.Context, args ...string) error {
 // 	               panic("TODO: mock out the Get method")
+//             },
+//             ModTidyFunc: func(ctx context.Context) error {
+// 	               panic("TODO: mock out the ModTidy method")
 //             },
 //         }
 //
@@ -33,10 +37,13 @@ var (
 //     }
 type CommandMock struct {
 	// BuildFunc mocks the Build method.
-	BuildFunc func(ctx context.Context, pkgs ...string) error
+	BuildFunc func(ctx context.Context, args ...string) error
 
 	// GetFunc mocks the Get method.
-	GetFunc func(ctx context.Context, pkgs ...string) error
+	GetFunc func(ctx context.Context, args ...string) error
+
+	// ModTidyFunc mocks the ModTidy method.
+	ModTidyFunc func(ctx context.Context) error
 
 	// calls tracks calls to the methods.
 	calls struct {
@@ -44,35 +51,40 @@ type CommandMock struct {
 		Build []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Pkgs is the pkgs argument value.
-			Pkgs []string
+			// Args is the args argument value.
+			Args []string
 		}
 		// Get holds details about calls to the Get method.
 		Get []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
-			// Pkgs is the pkgs argument value.
-			Pkgs []string
+			// Args is the args argument value.
+			Args []string
+		}
+		// ModTidy holds details about calls to the ModTidy method.
+		ModTidy []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
 		}
 	}
 }
 
 // Build calls BuildFunc.
-func (mock *CommandMock) Build(ctx context.Context, pkgs ...string) error {
+func (mock *CommandMock) Build(ctx context.Context, args ...string) error {
 	if mock.BuildFunc == nil {
 		panic("CommandMock.BuildFunc: method is nil but Command.Build was just called")
 	}
 	callInfo := struct {
 		Ctx  context.Context
-		Pkgs []string
+		Args []string
 	}{
 		Ctx:  ctx,
-		Pkgs: pkgs,
+		Args: args,
 	}
 	lockCommandMockBuild.Lock()
 	mock.calls.Build = append(mock.calls.Build, callInfo)
 	lockCommandMockBuild.Unlock()
-	return mock.BuildFunc(ctx, pkgs...)
+	return mock.BuildFunc(ctx, args...)
 }
 
 // BuildCalls gets all the calls that were made to Build.
@@ -80,11 +92,11 @@ func (mock *CommandMock) Build(ctx context.Context, pkgs ...string) error {
 //     len(mockedCommand.BuildCalls())
 func (mock *CommandMock) BuildCalls() []struct {
 	Ctx  context.Context
-	Pkgs []string
+	Args []string
 } {
 	var calls []struct {
 		Ctx  context.Context
-		Pkgs []string
+		Args []string
 	}
 	lockCommandMockBuild.RLock()
 	calls = mock.calls.Build
@@ -93,21 +105,21 @@ func (mock *CommandMock) BuildCalls() []struct {
 }
 
 // Get calls GetFunc.
-func (mock *CommandMock) Get(ctx context.Context, pkgs ...string) error {
+func (mock *CommandMock) Get(ctx context.Context, args ...string) error {
 	if mock.GetFunc == nil {
 		panic("CommandMock.GetFunc: method is nil but Command.Get was just called")
 	}
 	callInfo := struct {
 		Ctx  context.Context
-		Pkgs []string
+		Args []string
 	}{
 		Ctx:  ctx,
-		Pkgs: pkgs,
+		Args: args,
 	}
 	lockCommandMockGet.Lock()
 	mock.calls.Get = append(mock.calls.Get, callInfo)
 	lockCommandMockGet.Unlock()
-	return mock.GetFunc(ctx, pkgs...)
+	return mock.GetFunc(ctx, args...)
 }
 
 // GetCalls gets all the calls that were made to Get.
@@ -115,14 +127,45 @@ func (mock *CommandMock) Get(ctx context.Context, pkgs ...string) error {
 //     len(mockedCommand.GetCalls())
 func (mock *CommandMock) GetCalls() []struct {
 	Ctx  context.Context
-	Pkgs []string
+	Args []string
 } {
 	var calls []struct {
 		Ctx  context.Context
-		Pkgs []string
+		Args []string
 	}
 	lockCommandMockGet.RLock()
 	calls = mock.calls.Get
 	lockCommandMockGet.RUnlock()
+	return calls
+}
+
+// ModTidy calls ModTidyFunc.
+func (mock *CommandMock) ModTidy(ctx context.Context) error {
+	if mock.ModTidyFunc == nil {
+		panic("CommandMock.ModTidyFunc: method is nil but Command.ModTidy was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+	}{
+		Ctx: ctx,
+	}
+	lockCommandMockModTidy.Lock()
+	mock.calls.ModTidy = append(mock.calls.ModTidy, callInfo)
+	lockCommandMockModTidy.Unlock()
+	return mock.ModTidyFunc(ctx)
+}
+
+// ModTidyCalls gets all the calls that were made to ModTidy.
+// Check the length with:
+//     len(mockedCommand.ModTidyCalls())
+func (mock *CommandMock) ModTidyCalls() []struct {
+	Ctx context.Context
+} {
+	var calls []struct {
+		Ctx context.Context
+	}
+	lockCommandMockModTidy.RLock()
+	calls = mock.calls.ModTidy
+	lockCommandMockModTidy.RUnlock()
 	return calls
 }
