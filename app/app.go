@@ -14,6 +14,7 @@ const (
 	version = "0.1.0"
 )
 
+// Run receives args, then run dept.
 func Run(args []string) (int, error) {
 	app := cli.NewCLI(name, version)
 	app.Args = args
