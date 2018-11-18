@@ -37,6 +37,13 @@ func Run(args []string) (int, error) {
 				&deptfile.Workspace{},
 			), nil
 		},
+		"build": func() (cli.Command, error) {
+			return cmd.NewBuild(
+				newUI(),
+				gocmd.New(),
+				&deptfile.Workspace{},
+			), nil
+		},
 	}
 
 	return app.Run()

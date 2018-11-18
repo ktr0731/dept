@@ -29,8 +29,6 @@ func (c *removeCommand) UI() cli.Ui {
 	return c.ui
 }
 
-// Help shows the help message.
-// Before call Help, removeCommand.f must be initialized.
 func (c *removeCommand) Help() string {
 	return "Usage: dept remove <package>"
 }
@@ -86,7 +84,7 @@ func (c *removeCommand) Run(args []string) int {
 	})
 }
 
-// NewRemove returns an initialized get command instance.
+// NewRemove returns an initialized removeCommand instance.
 func NewRemove(
 	ui cli.Ui,
 	gocmd gocmd.Command,
