@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -23,6 +24,7 @@ import (
 //   5. TODO: Gopkg.toml
 //
 type getCommand struct {
+	f         *flag.FlagSet
 	ui        cli.Ui
 	gocmd     gocmd.Command
 	workspace *deptfile.Workspace
@@ -32,8 +34,10 @@ func (c *getCommand) UI() cli.Ui {
 	return c.ui
 }
 
+// Help shows the help message.
+// Before call Help, getCommand.f must be initialized.
 func (c *getCommand) Help() string {
-	return "Usage: dept get <url>"
+	return fmt.Sprintf("Usage: dept get <url>\n%s", flagUsage(c.f))
 }
 
 func (c *getCommand) Synopsis() string {
@@ -46,11 +50,10 @@ var (
 )
 
 func (c *getCommand) Run(args []string) int {
-	f := flag.NewFlagSet("get", flag.ExitOnError)
-	output := f.String("o", "", "output name")
-	f.Parse(args)
+	output := c.f.String("o", "", "output name")
+	c.f.Parse(args)
 
-	args = f.Args()
+	args = c.f.Args()
 
 	return run(c, func() error {
 		if len(args) != 1 {
@@ -110,6 +113,7 @@ func NewGet(
 	workspace *deptfile.Workspace,
 ) cli.Command {
 	return &getCommand{
+		f:         flag.NewFlagSet("get", flag.ExitOnError),
 		ui:        ui,
 		gocmd:     gocmd,
 		workspace: workspace,
