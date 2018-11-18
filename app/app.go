@@ -44,6 +44,12 @@ func Run(args []string) (int, error) {
 				&deptfile.Workspace{},
 			), nil
 		},
+		"list": func() (cli.Command, error) {
+			return cmd.NewList(
+				newUI(),
+				&deptfile.Workspace{},
+			), nil
+		},
 	}
 
 	return app.Run()

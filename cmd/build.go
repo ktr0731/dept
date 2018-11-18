@@ -83,7 +83,7 @@ func (c *buildCommand) Run(args []string) int {
 	})
 }
 
-// NewBuild returns an initialized buidCommand instance.
+// NewBuild returns an initialized buildCommand instance.
 func NewBuild(
 	ui cli.Ui,
 	gocmd gocmd.Command,
