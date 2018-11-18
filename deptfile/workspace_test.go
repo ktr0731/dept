@@ -18,7 +18,7 @@ func TestDo(t *testing.T) {
 	w := &deptfile.Workspace{
 		SourcePath: cwd,
 	}
-	err = w.Do(func(proj string) {
+	err = w.Do(func(proj string) error {
 		newcwd, err := os.Getwd()
 		if err != nil {
 			t.Fatalf("failed to get current working dir: %s", err)
@@ -26,6 +26,7 @@ func TestDo(t *testing.T) {
 		if cwd == newcwd {
 			t.Errorf("current dir in Do must not be equal to dir outside of Do")
 		}
+		return nil
 	})
 	if err != nil {
 		t.Errorf("Do must not return errors, but got an error: %s", err)

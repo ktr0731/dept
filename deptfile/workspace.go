@@ -27,7 +27,7 @@ type Workspace struct {
 // After that, Do changes back the current dir and remove the created workspace.
 //
 // f receives projectDir which is the project root dir.
-func (w *Workspace) Do(f func(projectDir string)) error {
+func (w *Workspace) Do(f func(projectDir string) error) error {
 	var err error
 	cwd := w.SourcePath
 	if cwd != "" {
@@ -60,7 +60,9 @@ func (w *Workspace) Do(f func(projectDir string)) error {
 		}
 	}
 
-	f(cwd)
+	if err := f(cwd); err != nil {
+		return err
+	}
 
 	if err := deptfileutil.Copy(filepath.Join(cwd, DeptfileName), "go.mod"); err != nil {
 		return errors.Wrap(err, "failed to copy go.mod to current dir")

@@ -98,16 +98,17 @@ func TestLoad(t *testing.T) {
 		defer cleanup()
 
 		w := &deptfile.Workspace{SourcePath: "."}
-		w.Do(func(string) {
+		err := w.Do(func(string) error {
 			if err := os.Remove("go.mod"); err != nil {
 				t.Fatalf("failed to remove go.mod from the temp dir: %s", err)
 			}
 
 			_, err := deptfile.Load(context.Background())
-			if err != deptfile.ErrNotFound {
-				t.Fatalf("Load must return ErrNotFound, but got %s", err)
-			}
+			return err
 		})
+		if err != deptfile.ErrNotFound {
+			t.Fatalf("Load must return ErrNotFound, but got '%s'", err)
+		}
 	})
 
 	t.Run("Load must return *File if deptfile found", func(t *testing.T) {
@@ -115,7 +116,7 @@ func TestLoad(t *testing.T) {
 		defer cleanup()
 
 		w := &deptfile.Workspace{SourcePath: "."}
-		w.Do(func(string) {
+		err := w.Do(func(string) error {
 			m, err := deptfile.Load(context.Background())
 			if err != nil {
 				t.Fatalf("deptfile must be load by Load, but got an error: %s", err)
@@ -124,6 +125,10 @@ func TestLoad(t *testing.T) {
 			if n := len(m.Require); n != 6 {
 				t.Errorf("number of required dependecies must be 6, but actual %d", n)
 			}
+			return nil
 		})
+		if err != nil {
+			t.Fatalf("Do must not return errors, but got %s", err)
+		}
 	})
 }

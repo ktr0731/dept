@@ -34,17 +34,14 @@ func Create(ctx context.Context) error {
 		SourcePath: ".",
 		DoNotCopy:  true,
 	}
-	werr := w.Do(func(string) {
+	err = w.Do(func(string) error {
 		// TODO: module name
 		err = exec.CommandContext(ctx, "go", "mod", "init", "tools").Run()
 		if err != nil {
-			err = errors.Wrap(err, "failed to init Go modules")
-			return
+			return errors.Wrap(err, "failed to init Go modules")
 		}
+		return nil
 	})
-	if werr != nil {
-		return errors.Wrap(werr, "failed to setup a workspace")
-	}
 	if err != nil {
 		return err
 	}
