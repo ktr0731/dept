@@ -76,34 +76,52 @@ func TestGetRun(t *testing.T) {
 	})
 
 	t.Run("Run returns code 0 normally", func(t *testing.T) {
-		mockUI := newMockUI()
-		mockGoCMD := &gocmd.CommandMock{
-			GetFunc: func(ctx context.Context, pkgs ...string) error {
-				return nil
+		cases := map[string]struct {
+			m    *deptfile.GoMod
+			args []string
+		}{
+			"get a new tool": {args: []string{"github.com/ktr0731/evans"}},
+			"update a tool": {
+				m: &deptfile.GoMod{
+					Require: []deptfile.Require{
+						{Path: "github.com/ktr0731/evans"},
+					},
+				},
+				args: []string{"-u", "github.com/ktr0731/evans"},
 			},
-			BuildFunc: func(ctx context.Context, pkgs ...string) error {
-				return nil
-			},
-		}
-		workspace := &deptfile.Workspace{SourcePath: "testdata"}
-
-		cleanup := setup(nil)
-		defer cleanup()
-
-		cmd := cmd.NewGet(mockUI, mockGoCMD, workspace)
-
-		repo := "github.com/ktr0731/go-modules-test"
-		code := cmd.Run([]string{repo})
-		if code != 0 {
-			t.Errorf("Run must return 0, but got %d (err = %s)", code, mockUI.ErrorWriter().String())
+			"-u also works if the specified tool is not found": {args: []string{"-u", "github.com/ktr0731/evans"}},
 		}
 
-		if n := len(mockGoCMD.GetCalls()); n != 1 {
-			t.Errorf("Get must be called once, but actual %d", n)
-		}
+		for name, c := range cases {
+			t.Run(name, func(t *testing.T) {
+				cleanup := setup(c.m)
+				defer cleanup()
 
-		if n := len(mockGoCMD.BuildCalls()); n != 1 {
-			t.Errorf("Build must be called once, but actual %d", n)
+				mockUI := newMockUI()
+				mockGoCMD := &gocmd.CommandMock{
+					GetFunc: func(ctx context.Context, pkgs ...string) error {
+						return nil
+					},
+					BuildFunc: func(ctx context.Context, pkgs ...string) error {
+						return nil
+					},
+				}
+				workspace := &deptfile.Workspace{SourcePath: "testdata"}
+				cmd := cmd.NewGet(mockUI, mockGoCMD, workspace)
+
+				code := cmd.Run(c.args)
+				if code != 0 {
+					t.Errorf("Run must return 0, but got %d (err = %s)", code, mockUI.ErrorWriter().String())
+				}
+
+				if n := len(mockGoCMD.GetCalls()); n != 1 {
+					t.Errorf("Get must be called once, but actual %d", n)
+				}
+
+				if n := len(mockGoCMD.BuildCalls()); n != 1 {
+					t.Errorf("Build must be called once, but actual %d", n)
+				}
+			})
 		}
 	})
 

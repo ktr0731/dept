@@ -54,6 +54,7 @@ func (c *getCommand) Run(args []string) int {
 
 	output := c.f.Lookup("o").Value.String()
 	outputDir := c.f.Lookup("d").Value.String()
+	update := c.f.Lookup("u").Value.String() == "true"
 
 	args = c.f.Args()
 
@@ -79,7 +80,7 @@ func (c *getCommand) Run(args []string) int {
 			// TODO: cleanup imports
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
-				if p := filepath.Base(r.Path); output == p {
+				if p := filepath.Base(r.Path); !update && output == p {
 					return errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", repo, r.Path)
 				}
 				requires = append(requires, r.Path)
@@ -93,7 +94,14 @@ func (c *getCommand) Run(args []string) int {
 			defer f.Close()
 			filegen.Generate(f, requires)
 
-			if err := c.gocmd.Get(ctx); err != nil {
+			var getArgs []string
+			if update {
+				getArgs = []string{"-u", repo}
+			} else {
+				getArgs = []string{repo}
+			}
+
+			if err := c.gocmd.Get(ctx, getArgs...); err != nil {
 				return errors.Wrap(err, "failed to get Go tools dependencies")
 			}
 
@@ -117,6 +125,7 @@ func NewGet(
 	f := flag.NewFlagSet("get", flag.ExitOnError)
 	f.String("o", "", "Output name")
 	f.String("d", "_tools", "Output dir to store built Go tools")
+	f.Bool("u", false, "Update the specified tool")
 	return &getCommand{
 		f:         f,
 		ui:        ui,
