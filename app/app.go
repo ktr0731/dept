@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/ktr0731/dept/cmd"
+	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/gocmd"
 	"github.com/mitchellh/cli"
 )
@@ -26,6 +27,7 @@ func Run(args []string) (int, error) {
 			return cmd.NewGet(
 				newUI(),
 				gocmd.New(),
+				&deptfile.Workspace{},
 			), nil
 		},
 	}

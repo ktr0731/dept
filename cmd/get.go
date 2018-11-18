@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -61,10 +60,12 @@ func (c *getCommand) Run(args []string) int {
 
 			repo := args[0]
 
+			// TODO: cleanup imports
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
 				requires = append(requires, r.Path)
 			}
+			requires = append(requires, repo)
 
 			f, err := os.Create("tools.go")
 			if err != nil {
@@ -78,8 +79,7 @@ func (c *getCommand) Run(args []string) int {
 			}
 
 			binPath := filepath.Join(projRoot, "_tools", filepath.Base(repo))
-			fmt.Println(binPath)
-			if err := c.gocmd.Build(ctx, "-o", binPath); err != nil {
+			if err := c.gocmd.Build(ctx, "-o", binPath, repo); err != nil {
 				return errors.Wrapf(err, "failed to buld %s (bin path = %s)", repo, binPath)
 			}
 

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/ktr0731/dept/deptfile/internal/deptfileutil"
 	"github.com/pkg/errors"
@@ -53,11 +54,10 @@ func (w *Workspace) Do(f func(projectDir string) error) error {
 
 	if !w.DoNotCopy {
 		if err := deptfileutil.Copy("go.mod", filepath.Join(cwd, DeptfileName)); err != nil {
-			return errors.Wrap(err, "failed to copy gotool.mod to the workspace")
+			return ErrNotFound
 		}
-		if err := deptfileutil.Copy("go.sum", filepath.Join(cwd, DeptfileSumName)); err != nil {
-			return errors.Wrap(err, "failed to copy gotool.sum to the workspace")
-		}
+		// ignore errors because it is auto-generated file.
+		deptfileutil.Copy("go.sum", filepath.Join(cwd, DeptfileSumName))
 	}
 
 	if err := f(cwd); err != nil {
@@ -88,5 +88,5 @@ func projectRoot() (string, error) {
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to parse '%s' as abs path", out.String())
 	}
-	return p, nil
+	return strings.TrimSpace(p), nil
 }

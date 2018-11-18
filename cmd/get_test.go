@@ -47,6 +47,26 @@ func TestGetRun(t *testing.T) {
 		}
 	})
 
+	t.Run("Run returns 1 because gotool.mod is not found", func(t *testing.T) {
+		mockUI := newMockUI()
+		workspace := &deptfile.Workspace{}
+
+		cleanup := setup()
+		defer cleanup()
+
+		cmd := cmd.NewGet(mockUI, nil, workspace)
+
+		repo := "github.com/ktr0731/go-modules-test"
+		code := cmd.Run([]string{repo})
+
+		if code != 1 {
+			t.Errorf("Run must return code 1, but got %d", code)
+		}
+		if eout := mockUI.ErrorWriter().String(); !strings.Contains(eout, "dept init") {
+			t.Errorf("Run must show 'dept init' related error message in case of gotool.mod is not found, but '%s'", eout)
+		}
+	})
+
 	t.Run("Run returns code 0 normally", func(t *testing.T) {
 		mockUI := newMockUI()
 		mockGoCMD := &gocmd.CommandMock{
