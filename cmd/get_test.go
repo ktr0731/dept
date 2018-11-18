@@ -18,9 +18,11 @@ func TestGetRun(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get current working dir: %s", err)
 	}
-	setup := func() func() {
-		m := &deptfile.GoMod{
-			Require: []deptfile.Require{},
+	setup := func(m *deptfile.GoMod) func() {
+		if m == nil {
+			m = &deptfile.GoMod{
+				Require: []deptfile.Require{},
+			}
 		}
 		cleanup := cmd.ChangeDeptfileLoad(func(context.Context) (*deptfile.GoMod, error) {
 			return m, nil
@@ -57,7 +59,7 @@ func TestGetRun(t *testing.T) {
 		mockUI := newMockUI()
 		workspace := &deptfile.Workspace{SourcePath: dir}
 
-		cleanup := setup()
+		cleanup := setup(nil)
 		defer cleanup()
 
 		cmd := cmd.NewGet(mockUI, nil, workspace)
@@ -85,7 +87,7 @@ func TestGetRun(t *testing.T) {
 		}
 		workspace := &deptfile.Workspace{SourcePath: "testdata"}
 
-		cleanup := setup()
+		cleanup := setup(nil)
 		defer cleanup()
 
 		cmd := cmd.NewGet(mockUI, mockGoCMD, workspace)
@@ -114,7 +116,7 @@ func TestGetRun(t *testing.T) {
 		}
 		workspace := &deptfile.Workspace{SourcePath: "testdata"}
 
-		cleanup := setup()
+		cleanup := setup(nil)
 		defer cleanup()
 
 		cmd := cmd.NewGet(mockUI, mockGoCMD, workspace)
@@ -127,6 +129,31 @@ func TestGetRun(t *testing.T) {
 
 		if n := len(mockGoCMD.GetCalls()); n != 1 {
 			t.Errorf("Get must be called once, but actual %d (err = %s)", n, mockUI.ErrorWriter().String())
+		}
+	})
+
+	t.Run("Run returns an error when tool names conflicted", func(t *testing.T) {
+		mockUI := newMockUI()
+		workspace := &deptfile.Workspace{SourcePath: "testdata"}
+
+		m := &deptfile.GoMod{
+			Require: []deptfile.Require{
+				{Path: "github.com/ktr0731/evans"},
+			},
+		}
+		cleanup := setup(m)
+		defer cleanup()
+
+		cmd := cmd.NewGet(mockUI, nil, workspace)
+
+		repo := "github.com/ktr0732/evans"
+		code := cmd.Run([]string{repo})
+		if code != 1 {
+			t.Errorf("Run must be 1, but got %d", code)
+		}
+
+		if mockUI.ErrorWriter().String() == "" {
+			t.Error("Run must output an error message, but empty")
 		}
 	})
 }

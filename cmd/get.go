@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"flag"
 	"os"
 	"path/filepath"
 
@@ -45,6 +46,12 @@ var (
 )
 
 func (c *getCommand) Run(args []string) int {
+	f := flag.NewFlagSet("get", flag.ExitOnError)
+	output := f.String("o", "", "output name")
+	f.Parse(args)
+
+	args = f.Args()
+
 	return run(c, func() error {
 		if len(args) != 1 {
 			return errShowHelp
@@ -60,9 +67,16 @@ func (c *getCommand) Run(args []string) int {
 
 			repo := args[0]
 
+			if *output == "" {
+				*output = filepath.Base(repo)
+			}
+
 			// TODO: cleanup imports
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
+				if p := filepath.Base(r.Path); *output == p {
+					return errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", repo, r.Path)
+				}
 				requires = append(requires, r.Path)
 			}
 			requires = append(requires, repo)
@@ -78,7 +92,7 @@ func (c *getCommand) Run(args []string) int {
 				return errors.Wrap(err, "failed to get Go tools dependencies")
 			}
 
-			binPath := filepath.Join(projRoot, "_tools", filepath.Base(repo))
+			binPath := filepath.Join(projRoot, "_tools", *output)
 			if err := c.gocmd.Build(ctx, "-o", binPath, repo); err != nil {
 				return errors.Wrapf(err, "failed to buld %s (bin path = %s)", repo, binPath)
 			}
