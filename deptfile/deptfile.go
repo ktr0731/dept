@@ -52,45 +52,30 @@ func Create(ctx context.Context) error {
 	return nil
 }
 
-// Load loads deptfile from current directory.
-// If deptfile not found, Load returns ErrNotFound.
+// Load loads go.mod from current directory.
+// If go.mod not found, Load returns ErrNotFound.
 //
 // 'go mod' command reads go.mod as a Go modules file so that
-// we creates a temp dir and copies gotool.mod and gotool.sum to there.
-// Then execute 'go mod' command.
+// we should create a Workspace and execute Do to create a temp dir
+// and copies gotool.mod and gotool.sum to there.
 func Load(ctx context.Context) (*GoMod, error) {
-	if _, err := os.Stat(DeptfileName); os.IsNotExist(err) {
+	if _, err := os.Stat("go.mod"); os.IsNotExist(err) {
 		return nil, ErrNotFound
 	}
 
 	var m GoMod
 	var err error
-	w := &Workspace{
-		SourcePath: ".",
+	var out, eout bytes.Buffer
+	cmd := exec.CommandContext(ctx, "go", "mod", "edit", "-json")
+	cmd.Stdout = &out
+	cmd.Stderr = &eout
+	if err := cmd.Run(); err != nil {
+		return nil, errors.Wrapf(err, "failed to execute 'go mod edit -json': %s", eout.String())
 	}
-	werr := w.Do(func(string) {
-		var out, eout bytes.Buffer
-		cmd := exec.CommandContext(ctx, "go", "mod", "edit", "-json")
-		cmd.Stdout = &out
-		cmd.Stderr = &eout
-		if err := cmd.Run(); err != nil {
-			err = errors.Wrapf(err, "failed to execute 'go mod edit -json': %s", eout.String())
-			return
-		}
 
-		if e := eout.String(); e != "" {
-			err = errors.New(e)
-			return
-		}
-
-		err = json.NewDecoder(&out).Decode(&m)
-		if err != nil {
-			err = errors.Wrapf(err, "failed to open or decode %s", DeptfileName)
-			return
-		}
-	})
-	if werr != nil {
-		return nil, errors.Wrap(werr, "failed to setup a workspace")
+	err = json.NewDecoder(&out).Decode(&m)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to open or decode %s", DeptfileName)
 	}
 	if err != nil {
 		return nil, errors.Wrap(err, "an error occurred in the workspace")
