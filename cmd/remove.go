@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 
 	"github.com/ktr0731/dept/deptfile"
@@ -35,7 +36,7 @@ func (c *removeCommand) Help() string {
 }
 
 func (c *removeCommand) Synopsis() string {
-	return "Remove a CLI tool"
+	return fmt.Sprintf("Remove a tool from %s", deptfile.DeptfileName)
 }
 
 func (c *removeCommand) Run(args []string) int {

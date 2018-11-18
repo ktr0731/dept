@@ -41,8 +41,14 @@ func FlagUsage(f *flag.FlagSet) string {
 	var b strings.Builder
 	b.WriteString("Available flags are:\n")
 	f.VisitAll(func(f *flag.Flag) {
+		fmt.Fprintf(&b, "    -%s", f.Name)
 		name, _ := flag.UnquoteUsage(f)
-		fmt.Fprintf(&b, "    -%s %s   %s\n", f.Name, name, f.Usage)
+		if name != "" {
+			fmt.Fprintf(&b, " %s", name)
+		} else {
+			b.WriteString("\t")
+		}
+		fmt.Fprintf(&b, "\t%s\n", f.Usage)
 	})
 	return b.String()
 }

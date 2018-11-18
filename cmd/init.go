@@ -22,7 +22,7 @@ func (c *initCommand) Help() string {
 }
 
 func (c *initCommand) Synopsis() string {
-	return "Create new deptfile"
+	return "Create a new deptfile"
 }
 
 func (c *initCommand) Run(args []string) int {

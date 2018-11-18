@@ -41,7 +41,7 @@ func (c *getCommand) Help() string {
 }
 
 func (c *getCommand) Synopsis() string {
-	return "Get new CLI tool as a dependency"
+	return "Get a new tool as a dependency"
 }
 
 // Used only mocking
