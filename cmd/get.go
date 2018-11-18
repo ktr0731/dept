@@ -37,7 +37,7 @@ func (c *getCommand) UI() cli.Ui {
 // Help shows the help message.
 // Before call Help, getCommand.f must be initialized.
 func (c *getCommand) Help() string {
-	return fmt.Sprintf("Usage: dept get <url>\n%s", flagUsage(c.f))
+	return fmt.Sprintf("Usage: dept get <url>\n\n%s", FlagUsage(c.f))
 }
 
 func (c *getCommand) Synopsis() string {
@@ -50,8 +50,10 @@ var (
 )
 
 func (c *getCommand) Run(args []string) int {
-	output := c.f.String("o", "", "output name")
 	c.f.Parse(args)
+
+	output := c.f.Lookup("o").Value.String()
+	outputDir := c.f.Lookup("d").Value.String()
 
 	args = c.f.Args()
 
@@ -70,14 +72,14 @@ func (c *getCommand) Run(args []string) int {
 
 			repo := args[0]
 
-			if *output == "" {
-				*output = filepath.Base(repo)
+			if output == "" {
+				output = filepath.Base(repo)
 			}
 
 			// TODO: cleanup imports
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
-				if p := filepath.Base(r.Path); *output == p {
+				if p := filepath.Base(r.Path); output == p {
 					return errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", repo, r.Path)
 				}
 				requires = append(requires, r.Path)
@@ -95,7 +97,7 @@ func (c *getCommand) Run(args []string) int {
 				return errors.Wrap(err, "failed to get Go tools dependencies")
 			}
 
-			binPath := filepath.Join(projRoot, "_tools", *output)
+			binPath := filepath.Join(projRoot, outputDir, output)
 			if err := c.gocmd.Build(ctx, "-o", binPath, repo); err != nil {
 				return errors.Wrapf(err, "failed to buld %s (bin path = %s)", repo, binPath)
 			}
@@ -112,8 +114,11 @@ func NewGet(
 	gocmd gocmd.Command,
 	workspace *deptfile.Workspace,
 ) cli.Command {
+	f := flag.NewFlagSet("get", flag.ExitOnError)
+	f.String("o", "", "Output name")
+	f.String("d", "_tools", "Output dir to store built Go tools")
 	return &getCommand{
-		f:         flag.NewFlagSet("get", flag.ExitOnError),
+		f:         f,
 		ui:        ui,
 		gocmd:     gocmd,
 		workspace: workspace,

@@ -1,9 +1,10 @@
 package cmd
 
 import (
-	"bytes"
 	"errors"
 	"flag"
+	"fmt"
+	"strings"
 
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/mitchellh/cli"
@@ -35,12 +36,13 @@ func run(c command, f func() error) int {
 	return 1
 }
 
-// flagUsage gets available flags and usage from f.
-func flagUsage(f *flag.FlagSet) string {
-	var buf bytes.Buffer
-	old := f.Output()
-	f.SetOutput(&buf)
-	f.PrintDefaults()
-	f.SetOutput(old)
-	return buf.String()
+// FlagUsage gets available flags and usage from f.
+func FlagUsage(f *flag.FlagSet) string {
+	var b strings.Builder
+	b.WriteString("Available flags are:\n")
+	f.VisitAll(func(f *flag.Flag) {
+		name, _ := flag.UnquoteUsage(f)
+		fmt.Fprintf(&b, "    -%s %s   %s\n", f.Name, name, f.Usage)
+	})
+	return b.String()
 }
