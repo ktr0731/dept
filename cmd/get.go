@@ -37,7 +37,7 @@ func (c *getCommand) UI() cli.Ui {
 // Help shows the help message.
 // Before call Help, getCommand.f must be initialized.
 func (c *getCommand) Help() string {
-	return fmt.Sprintf("Usage: dept get <url>\n\n%s", FlagUsage(c.f))
+	return fmt.Sprintf("Usage: dept get <package>\n\n%s", FlagUsage(c.f))
 }
 
 func (c *getCommand) Synopsis() string {
@@ -94,15 +94,18 @@ func (c *getCommand) Run(args []string) int {
 			defer f.Close()
 			filegen.Generate(f, requires)
 
-			var getArgs []string
-			if update {
-				getArgs = []string{"-u", repo}
-			} else {
-				getArgs = []string{repo}
+			// Always getCommand runs Get.
+			// If an unmanaged too is passed with -u option, '// indirect' is marked
+			// because it is not included in gotool.mod.
+			if err := c.gocmd.Get(ctx); err != nil {
+				return errors.Wrap(err, "failed to get Go tools dependencies")
 			}
 
-			if err := c.gocmd.Get(ctx, getArgs...); err != nil {
-				return errors.Wrap(err, "failed to get Go tools dependencies")
+			// If also -u is passed, update repo to the latest.
+			if update {
+				if err := c.gocmd.Get(ctx, "-u", repo); err != nil {
+					return errors.Wrap(err, "failed to get Go tools dependencies")
+				}
 			}
 
 			binPath := filepath.Join(projRoot, outputDir, output)

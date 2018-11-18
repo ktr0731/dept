@@ -30,6 +30,13 @@ func Run(args []string) (int, error) {
 				&deptfile.Workspace{},
 			), nil
 		},
+		"remove": func() (cli.Command, error) {
+			return cmd.NewRemove(
+				newUI(),
+				gocmd.New(),
+				&deptfile.Workspace{},
+			), nil
+		},
 	}
 
 	return app.Run()

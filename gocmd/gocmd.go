@@ -14,6 +14,7 @@ import (
 type Command interface {
 	Get(ctx context.Context, args ...string) error
 	Build(ctx context.Context, args ...string) error
+	ModTidy(ctx context.Context) error
 }
 
 func New() Command {
@@ -38,6 +39,16 @@ func (c *command) Build(ctx context.Context, args ...string) error {
 	cmd.Stderr = &eout
 	if err := cmd.Run(); err != nil {
 		return errors.Wrapf(err, "failed to execute 'go build %s': '%s'", strings.Join(args, " "), eout.String())
+	}
+	return nil
+}
+
+func (c *command) ModTidy(ctx context.Context) error {
+	var eout bytes.Buffer
+	cmd := exec.CommandContext(ctx, "go", "mod", "tidy")
+	cmd.Stderr = &eout
+	if err := cmd.Run(); err != nil {
+		return errors.Wrapf(err, "failed to execute 'go mod tidy': '%s'", eout.String())
 	}
 	return nil
 }
