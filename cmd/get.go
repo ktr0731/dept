@@ -1,15 +1,14 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
-	"io"
+	"fmt"
 	"os"
+	"path/filepath"
 
-	"github.com/ktr0731/dept/builder"
 	"github.com/ktr0731/dept/deptfile"
-	"github.com/ktr0731/dept/fetcher"
 	"github.com/ktr0731/dept/filegen"
+	"github.com/ktr0731/dept/gocmd"
 	"github.com/mitchellh/cli"
 	"github.com/pkg/errors"
 )
@@ -24,9 +23,9 @@ import (
 //   5. TODO: Gopkg.toml
 //
 type getCommand struct {
-	ui      cli.Ui
-	fetcher fetcher.Fetcher
-	builder builder.Builder
+	ui        cli.Ui
+	gocmd     gocmd.Command
+	workspace *deptfile.Workspace
 }
 
 func (c *getCommand) UI() cli.Ui {
@@ -42,7 +41,9 @@ func (c *getCommand) Synopsis() string {
 }
 
 // Used only mocking
-var deptfileLoad func(context.Context) (*deptfile.GoMod, error) = deptfile.Load
+var (
+	deptfileLoad = deptfile.Load
+)
 
 func (c *getCommand) Run(args []string) int {
 	return run(c, func() error {
@@ -52,46 +53,51 @@ func (c *getCommand) Run(args []string) int {
 
 		ctx := context.Background()
 
-		df, err := deptfileLoad(ctx)
-		if err != nil {
-			return err
-		}
+		err := c.workspace.Do(func(projRoot string) error {
+			df, err := deptfileLoad(ctx)
+			if err != nil {
+				return err
+			}
 
-		repo := args[0]
+			repo := args[0]
 
-		requires := make([]string, 0, len(df.Require))
-		for _, r := range df.Require {
-			requires = append(requires, r.Path)
-		}
+			requires := make([]string, 0, len(df.Require))
+			for _, r := range df.Require {
+				requires = append(requires, r.Path)
+			}
 
-		var out bytes.Buffer
-		filegen.Generate(&out, requires)
+			f, err := os.Create("tools.go")
+			if err != nil {
+				return errors.Wrap(err, "failed to create a temp file which contains required Go tools in the import statement")
+			}
+			defer f.Close()
+			filegen.Generate(f, requires)
 
-		io.Copy(os.Stdout, &out)
+			if err := c.gocmd.Get(ctx); err != nil {
+				return errors.Wrap(err, "failed to get Go tools dependencies")
+			}
 
-		err = c.fetcher.Fetch(ctx, repo)
-		if err != nil {
-			return errors.Wrap(err, "failed to fetch passed repository")
-		}
+			binPath := filepath.Join(projRoot, "_tools", filepath.Base(repo))
+			fmt.Println(binPath)
+			if err := c.gocmd.Build(ctx, "-o", binPath); err != nil {
+				return errors.Wrapf(err, "failed to buld %s (bin path = %s)", repo, binPath)
+			}
 
-		err = c.builder.Build(ctx, fetcher.VendorDir(repo))
-		if err != nil {
-			return errors.Wrap(err, "failed to build fetched repository")
-		}
-
-		return nil
+			return nil
+		})
+		return err
 	})
 }
 
 // NewGet returns an initialized get command instance.
 func NewGet(
 	ui cli.Ui,
-	fetcher fetcher.Fetcher,
-	builder builder.Builder,
+	gocmd gocmd.Command,
+	workspace *deptfile.Workspace,
 ) cli.Command {
 	return &getCommand{
-		ui:      ui,
-		fetcher: fetcher,
-		builder: builder,
+		ui:        ui,
+		gocmd:     gocmd,
+		workspace: workspace,
 	}
 }

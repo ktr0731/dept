@@ -1,22 +1,42 @@
 package cmd_test
 
 import (
-	"bytes"
 	"context"
+	"os"
 	"strings"
 	"testing"
 
-	"github.com/ktr0731/dept/builder"
 	"github.com/ktr0731/dept/cmd"
 	"github.com/ktr0731/dept/deptfile"
-	"github.com/ktr0731/dept/fetcher"
+	"github.com/ktr0731/dept/gocmd"
 	"github.com/pkg/errors"
 )
 
 func TestGetRun(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get current working dir: %s", err)
+	}
+	setup := func() func() {
+		m := &deptfile.GoMod{
+			Require: []deptfile.Require{},
+		}
+		cleanup := cmd.ChangeDeptfileLoad(func(context.Context) (*deptfile.GoMod, error) {
+			return m, nil
+		})
+		return func() {
+			cleanup()
+			// workspace.Do also change back to current working dir.
+			// However, we will specify SourcePath to "testdata", so changed dir will be "testdata", not package dir.
+			// We change directory to package dir manually.
+			os.Chdir(cwd)
+		}
+	}
+
 	t.Run("Run returns code 1 because no arguments passed", func(t *testing.T) {
 		mockUI := newMockUI()
-		cmd := cmd.NewGet(mockUI, nil, nil)
+		workspace := &deptfile.Workspace{SourcePath: "testdata"}
+		cmd := cmd.NewGet(mockUI, nil, workspace)
 
 		code := cmd.Run(nil)
 		if code != 1 {
@@ -29,63 +49,49 @@ func TestGetRun(t *testing.T) {
 
 	t.Run("Run returns code 0 normally", func(t *testing.T) {
 		mockUI := newMockUI()
-		mockFetcher := &fetcher.FetcherMock{
-			FetchFunc: func(ctx context.Context, repo string) error { return nil },
+		mockGoCMD := &gocmd.CommandMock{
+			GetFunc: func(ctx context.Context, pkgs ...string) error {
+				return nil
+			},
+			BuildFunc: func(ctx context.Context, pkgs ...string) error {
+				return nil
+			},
 		}
-		mockBuilder := &builder.BuilderMock{
-			BuildFunc: func(ctx context.Context, dir string) error { return nil },
-		}
+		workspace := &deptfile.Workspace{SourcePath: "testdata"}
 
-		var out bytes.Buffer
-		m := &deptfile.GoMod{
-			Require: []deptfile.Require{},
-		}
-		cleanup := cmd.ChangeDeptfileLoad(func(context.Context) (*deptfile.GoMod, error) {
-			return m, nil
-		})
+		cleanup := setup()
 		defer cleanup()
 
-		cmd := cmd.NewGet(mockUI, mockFetcher, mockBuilder)
+		cmd := cmd.NewGet(mockUI, mockGoCMD, workspace)
 
 		repo := "github.com/ktr0731/go-modules-test"
 		code := cmd.Run([]string{repo})
 		if code != 0 {
-			t.Errorf("Run must be 0, but got %d", code)
+			t.Errorf("Run must return 0, but got %d (err = %s)", code, mockUI.ErrorWriter().String())
 		}
 
-		if n := len(mockFetcher.FetchCalls()); n != 1 {
-			t.Errorf("Fetch must be called once, but actual %d", n)
+		if n := len(mockGoCMD.GetCalls()); n != 1 {
+			t.Errorf("Get must be called once, but actual %d", n)
 		}
 
-		if n := len(mockBuilder.BuildCalls()); n != 1 {
+		if n := len(mockGoCMD.BuildCalls()); n != 1 {
 			t.Errorf("Build must be called once, but actual %d", n)
-		}
-
-		if n := len(m.Require); n != 1 {
-			t.Errorf("Get must add passed dependency to requirements, but %d dependency found", n)
-		}
-
-		if out.String() == "" {
-			t.Error("Encode must be called")
 		}
 	})
 
 	t.Run("deptfile is not modified when command failed", func(t *testing.T) {
 		mockUI := newMockUI()
-		mockFetcher := &fetcher.FetcherMock{
-			FetchFunc: func(ctx context.Context, repo string) error { return errors.New("an error") },
+		mockGoCMD := &gocmd.CommandMock{
+			GetFunc: func(ctx context.Context, pkgs ...string) error {
+				return errors.New("an error")
+			},
 		}
+		workspace := &deptfile.Workspace{SourcePath: "testdata"}
 
-		var out bytes.Buffer
-		m := &deptfile.GoMod{
-			Require: []deptfile.Require{},
-		}
-		cleanup := cmd.ChangeDeptfileLoad(func(context.Context) (*deptfile.GoMod, error) {
-			return m, nil
-		})
+		cleanup := setup()
 		defer cleanup()
 
-		cmd := cmd.NewGet(mockUI, mockFetcher, nil)
+		cmd := cmd.NewGet(mockUI, mockGoCMD, workspace)
 
 		repo := "github.com/ktr0731/go-modules-test"
 		code := cmd.Run([]string{repo})
@@ -93,16 +99,8 @@ func TestGetRun(t *testing.T) {
 			t.Errorf("Run must be 1, but got %d", code)
 		}
 
-		if n := len(mockFetcher.FetchCalls()); n != 1 {
-			t.Errorf("Fetch must be called once, but actual %d", n)
-		}
-
-		if n := len(m.Require); n != 0 {
-			t.Errorf("Get must not add passed dependency to requirements when command failed, but %d dependency found", n)
-		}
-
-		if out.String() != "" {
-			t.Error("Encode must not be called")
+		if n := len(mockGoCMD.GetCalls()); n != 1 {
+			t.Errorf("Get must be called once, but actual %d (err = %s)", n, mockUI.ErrorWriter().String())
 		}
 	})
 }
