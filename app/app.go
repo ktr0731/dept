@@ -3,9 +3,8 @@ package app
 import (
 	"os"
 
-	"github.com/ktr0731/dept/builder"
 	"github.com/ktr0731/dept/cmd"
-	"github.com/ktr0731/dept/fetcher"
+	"github.com/ktr0731/dept/gocmd"
 	"github.com/mitchellh/cli"
 )
 
@@ -26,8 +25,7 @@ func Run(args []string) (int, error) {
 		"get": func() (cli.Command, error) {
 			return cmd.NewGet(
 				newUI(),
-				fetcher.New(),
-				builder.New(),
+				gocmd.New(),
 			), nil
 		},
 	}
