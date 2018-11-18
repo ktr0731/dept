@@ -32,7 +32,7 @@ func (c *buildCommand) Help() string {
 }
 
 func (c *buildCommand) Synopsis() string {
-	return "Build all tools based on gotool.mod"
+	return fmt.Sprintf("Build all tools based on %s", deptfile.DeptfileName)
 }
 
 func (c *buildCommand) Run(args []string) int {
