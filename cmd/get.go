@@ -80,6 +80,9 @@ func (c *getCommand) Run(args []string) int {
 			// TODO: cleanup imports
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
+				if r.Indirect {
+					continue
+				}
 				if p := filepath.Base(r.Path); !update && output == p {
 					return errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", repo, r.Path)
 				}
