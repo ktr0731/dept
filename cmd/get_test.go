@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
@@ -48,8 +49,13 @@ func TestGetRun(t *testing.T) {
 	})
 
 	t.Run("Run returns 1 because gotool.mod is not found", func(t *testing.T) {
+		dir, err := ioutil.TempDir("", "")
+		if err != nil {
+			t.Fatalf("failed to create a temp dir: %s", err)
+		}
+
 		mockUI := newMockUI()
-		workspace := &deptfile.Workspace{}
+		workspace := &deptfile.Workspace{SourcePath: dir}
 
 		cleanup := setup()
 		defer cleanup()

@@ -1,6 +1,7 @@
 package deptfile_test
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -43,8 +44,12 @@ func TestDo(t *testing.T) {
 	})
 
 	t.Run("workspace returns ErrNotFound", func(t *testing.T) {
-		w := &deptfile.Workspace{}
-		err := w.Do(func(proj string) error {
+		dir, err := ioutil.TempDir("", "")
+		if err != nil {
+			t.Fatalf("failed to create a temp dir: %s", err)
+		}
+		w := &deptfile.Workspace{SourcePath: dir}
+		err = w.Do(func(proj string) error {
 			return nil
 		})
 		if err != deptfile.ErrNotFound {

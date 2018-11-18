@@ -1,16 +1,27 @@
 package filegen_test
 
 import (
-	"os"
+	"bytes"
 	"testing"
 
 	"github.com/ktr0731/dept/filegen"
 )
 
 func TestGenerator(t *testing.T) {
+	expected := `package tools
+
+import (
+	_ "github.com/foo/bar"
+	_ "github.com/ktr0731/evans"
+)
+`
 	df := []string{
 		"github.com/foo/bar",
 		"github.com/ktr0731/evans",
 	}
-	filegen.Generate(os.Stdout, df)
+	var buf bytes.Buffer
+	filegen.Generate(&buf, df)
+	if actual := buf.String(); expected != actual {
+		t.Errorf("expected:\n%s\n\nactual:\n%s", expected, actual)
+	}
 }
