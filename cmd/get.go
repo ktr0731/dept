@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/filegen"
@@ -71,7 +72,14 @@ func (c *getCommand) Run(args []string) int {
 				return err
 			}
 
-			repo := args[0]
+			var repo, ver string
+			path := args[0]
+			if i := strings.Index(path, "@"); i != -1 {
+				repo = path[:i]
+				ver = path[i+1:]
+			} else {
+				repo = path
+			}
 
 			if output == "" {
 				output = filepath.Base(repo)
@@ -83,7 +91,7 @@ func (c *getCommand) Run(args []string) int {
 				if r.Indirect {
 					continue
 				}
-				if p := filepath.Base(r.Path); !update && output == p {
+				if p := filepath.Base(r.Path); output == p && r.Path != repo {
 					return errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", repo, r.Path)
 				}
 				requires = append(requires, r.Path)
@@ -98,14 +106,14 @@ func (c *getCommand) Run(args []string) int {
 			filegen.Generate(f, requires)
 
 			// Always getCommand runs Get.
-			// If an unmanaged too is passed with -u option, '// indirect' is marked
+			// If an unmanaged tool is passed with -u option, '// indirect' is marked
 			// because it is not included in gotool.mod.
-			if err := c.gocmd.Get(ctx); err != nil {
+			if err := c.gocmd.Get(ctx, path, "./..."); err != nil {
 				return errors.Wrap(err, "failed to get Go tools dependencies")
 			}
 
 			// If also -u is passed, update repo to the latest.
-			if update {
+			if update && ver == "" {
 				if err := c.gocmd.Get(ctx, "-u", repo); err != nil {
 					return errors.Wrap(err, "failed to get Go tools dependencies")
 				}
@@ -131,7 +139,7 @@ func NewGet(
 	f := flag.NewFlagSet("get", flag.ExitOnError)
 	f.String("o", "", "Output name")
 	f.String("d", "_tools", "Output dir to store built Go tools")
-	f.Bool("u", false, "Update the specified tool")
+	f.Bool("u", false, "Update the specified tool to the latest version")
 	return &getCommand{
 		f:         f,
 		ui:        ui,

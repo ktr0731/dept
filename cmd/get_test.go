@@ -165,27 +165,59 @@ func TestGetRun(t *testing.T) {
 	})
 
 	t.Run("Run returns an error when tool names conflicted", func(t *testing.T) {
-		mockUI := newMockUI()
-		workspace := &deptfile.Workspace{SourcePath: "testdata"}
-
 		m := &deptfile.GoMod{
 			Require: []deptfile.Require{
 				{Path: "github.com/ktr0731/evans"},
 			},
 		}
-		cleanup := setup(m)
-		defer cleanup()
 
-		cmd := cmd.NewGet(mockUI, nil, workspace)
-
-		repo := "github.com/ktr0732/evans"
-		code := cmd.Run([]string{repo})
-		if code != 1 {
-			t.Errorf("Run must be 1, but got %d", code)
+		cases := map[string]struct {
+			hasErr  bool
+			require string
+		}{
+			"same tools":                                {hasErr: false, require: "github.com/ktr0731/evans"},
+			"same tools with versions":                  {hasErr: false, require: "github.com/ktr0731/evans@v0.2.0"},
+			"different tools, different names":          {hasErr: false, require: "github.com/foo/bar"},
+			"different tools, same names":               {hasErr: true, require: "github.com/foo/evans"},
+			"different tools, same names with versions": {hasErr: true, require: "github.com/foo/evans@v0.2.0"},
+			"invalid module version syntax":             {hasErr: true, require: "github.com/foo/evans@"},
 		}
 
-		if mockUI.ErrorWriter().String() == "" {
-			t.Error("Run must output an error message, but empty")
+		for name, c := range cases {
+			t.Run(name, func(t *testing.T) {
+				mockUI := newMockUI()
+				workspace := &deptfile.Workspace{SourcePath: "testdata"}
+				mockGoCMD := &gocmd.CommandMock{
+					GetFunc: func(ctx context.Context, pkgs ...string) error {
+						return nil
+					},
+					BuildFunc: func(ctx context.Context, pkgs ...string) error {
+						return nil
+					},
+				}
+
+				cleanup := setup(m)
+				defer cleanup()
+
+				cmd := cmd.NewGet(mockUI, mockGoCMD, workspace)
+
+				code := cmd.Run([]string{c.require})
+				if c.hasErr {
+					if code != 1 {
+						t.Errorf("Run must return 0, but got %d", code)
+					}
+					if mockUI.ErrorWriter().String() == "" {
+						t.Error("Run must output an error message, but empty")
+					}
+				} else {
+					if code != 0 {
+						t.Errorf("Run must return 0, but got %d", code)
+					}
+					if eout := mockUI.ErrorWriter().String(); eout != "" {
+						t.Errorf("Run must not output any error messages, but got '%s'", eout)
+					}
+				}
+			})
 		}
 	})
 }
