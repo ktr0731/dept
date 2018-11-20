@@ -83,30 +83,44 @@ func TestRemoveRun(t *testing.T) {
 			},
 		}
 
-		cleanup := setup(m)
-		defer cleanup()
-
-		mockUI := newMockUI()
-		mockGoCMD := &gocmd.CommandMock{
-			ModTidyFunc: func(ctx context.Context) error {
-				return nil
-			},
-		}
-		workspace := &deptfile.Workspace{SourcePath: "testdata"}
-		cmd := cmd.NewRemove(mockUI, mockGoCMD, workspace)
-
-		code := cmd.Run([]string{"github.com/wa2/kazusa"})
-		if code != 0 {
-			t.Errorf("Run must return 0, but got %d (err = %s)", code, mockUI.ErrorWriter().String())
+		cases := map[string]struct {
+			repo   string
+			hasErr bool
+		}{
+			"normal":        {repo: "github.com/wa2/kazusa"},
+			"normal with /": {repo: "github.com/wa2/kazusa/"},
+			"indirection package is not able to remove": {repo: "github.com/wa2/haruki"},
 		}
 
-		if n := len(mockGoCMD.ModTidyCalls()); n != 1 {
-			t.Errorf("ModTidy must be called once, but actual %d", n)
-		}
+		for name, c := range cases {
+			t.Run(name, func(t *testing.T) {
+				cleanup := setup(m)
+				defer cleanup()
 
-		code = cmd.Run([]string{"github.com/wa2/haruki"})
-		if code == 0 {
-			t.Errorf("Run must return 1 because indirection package is not able to removed, but got %d (err = %s)", code, mockUI.ErrorWriter().String())
+				mockUI := newMockUI()
+				mockGoCMD := &gocmd.CommandMock{
+					ModTidyFunc: func(ctx context.Context) error {
+						return nil
+					},
+				}
+				workspace := &deptfile.Workspace{SourcePath: "testdata"}
+				cmd := cmd.NewRemove(mockUI, mockGoCMD, workspace)
+
+				code := cmd.Run([]string{c.repo})
+				if c.hasErr {
+					if code == 0 {
+						t.Errorf("Run must return 1, but got %d (err = %s)", code, mockUI.ErrorWriter().String())
+					}
+				} else {
+					if code != 0 {
+						t.Errorf("Run must return 0, but got %d (err = %s)", code, mockUI.ErrorWriter().String())
+					}
+
+					if n := len(mockGoCMD.ModTidyCalls()); n != 1 {
+						t.Errorf("ModTidy must be called once, but actual %d", n)
+					}
+				}
+			})
 		}
 	})
 

@@ -81,7 +81,8 @@ func TestGetRun(t *testing.T) {
 			args   []string
 			update bool
 		}{
-			"get a new tool": {args: []string{"github.com/ktr0731/evans"}},
+			"get a new tool":                  {args: []string{"github.com/ktr0731/evans"}},
+			"get a new tool with HTTP scheme": {args: []string{"https://github.com/ktr0731/evans"}},
 			"update a tool": {
 				m: &deptfile.GoMod{
 					Require: []deptfile.Require{
