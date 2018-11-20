@@ -1,13 +1,15 @@
 package cmd
 
 import (
-	"errors"
 	"flag"
 	"fmt"
+	"net/url"
+	"path/filepath"
 	"strings"
 
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/mitchellh/cli"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -51,4 +53,22 @@ func FlagUsage(f *flag.FlagSet) string {
 		fmt.Fprintf(&b, "\t%s\n", f.Usage)
 	})
 	return b.String()
+}
+
+func normalizeRepo(path string) (repo, ver string, err error) {
+	var u *url.URL
+	u, err = url.Parse(path)
+	if err != nil {
+		return "", "", errors.Wrap(err, "invalid repo passed")
+	}
+
+	path = filepath.Clean(u.Path)
+
+	if i := strings.Index(path, "@"); i != -1 {
+		repo = path[:i]
+		ver = path[i+1:]
+	} else {
+		repo = path
+	}
+	return
 }

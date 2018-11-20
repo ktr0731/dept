@@ -87,8 +87,9 @@ func TestRemoveRun(t *testing.T) {
 			repo   string
 			hasErr bool
 		}{
-			"normal":        {repo: "github.com/wa2/kazusa"},
-			"normal with /": {repo: "github.com/wa2/kazusa/"},
+			"normal":                  {repo: "github.com/wa2/kazusa"},
+			"normal with /":           {repo: "github.com/wa2/kazusa/"},
+			"normal with HTTP scheme": {repo: "https://github.com/wa2/kazusa"},
 			"indirection package is not able to remove": {repo: "github.com/wa2/haruki"},
 		}
 

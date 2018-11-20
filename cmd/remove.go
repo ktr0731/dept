@@ -51,7 +51,11 @@ func (c *removeCommand) Run(args []string) int {
 				return err
 			}
 
-			repo := args[0]
+			path := args[0]
+			repo, _, err := normalizeRepo(path)
+			if err != nil {
+				return err
+			}
 
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {

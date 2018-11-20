@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/filegen"
@@ -72,13 +71,10 @@ func (c *getCommand) Run(args []string) int {
 				return err
 			}
 
-			var repo, ver string
 			path := args[0]
-			if i := strings.Index(path, "@"); i != -1 {
-				repo = path[:i]
-				ver = path[i+1:]
-			} else {
-				repo = path
+			repo, ver, err := normalizeRepo(path)
+			if err != nil {
+				return err
 			}
 
 			if output == "" {
