@@ -48,7 +48,7 @@ func Create(ctx context.Context) error {
 		SourcePath: ".",
 		DoNotCopy:  true,
 	}
-	err = w.Do(func(string) error {
+	err = w.Do(func(string, *GoMod) error {
 		// TODO: module name
 		err = exec.CommandContext(ctx, "go", "mod", "init", "tools").Run()
 		if err != nil {

@@ -20,7 +20,7 @@ func TestDo(t *testing.T) {
 		w := &deptfile.Workspace{
 			SourcePath: cwd,
 		}
-		err = w.Do(func(proj string) error {
+		err = w.Do(func(proj string, gomod *deptfile.GoMod) error {
 			newcwd, err := os.Getwd()
 			if err != nil {
 				t.Fatalf("failed to get current working dir: %s", err)
@@ -49,7 +49,7 @@ func TestDo(t *testing.T) {
 			t.Fatalf("failed to create a temp dir: %s", err)
 		}
 		w := &deptfile.Workspace{SourcePath: dir}
-		err = w.Do(func(proj string) error {
+		err = w.Do(func(proj string, gomod *deptfile.GoMod) error {
 			return nil
 		})
 		if err != deptfile.ErrNotFound {

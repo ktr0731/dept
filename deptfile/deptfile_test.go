@@ -98,7 +98,7 @@ func TestLoad(t *testing.T) {
 		defer cleanup()
 
 		w := &deptfile.Workspace{SourcePath: "."}
-		err := w.Do(func(string) error {
+		err := w.Do(func(string, *deptfile.GoMod) error {
 			if err := os.Remove("go.mod"); err != nil {
 				t.Fatalf("failed to remove go.mod from the temp dir: %s", err)
 			}
@@ -116,7 +116,7 @@ func TestLoad(t *testing.T) {
 		defer cleanup()
 
 		w := &deptfile.Workspace{SourcePath: "."}
-		err := w.Do(func(string) error {
+		err := w.Do(func(string, *deptfile.GoMod) error {
 			m, err := deptfile.Load(context.Background())
 			if err != nil {
 				t.Fatalf("deptfile must be load by Load, but got an error: %s", err)

@@ -1,3 +1,5 @@
+//go:generate moq -out mock_gen.go . Workspacer
+
 package deptfile
 
 import (
@@ -11,6 +13,10 @@ import (
 	"github.com/ktr0731/dept/deptfile/internal/deptfileutil"
 	"github.com/pkg/errors"
 )
+
+type Workspacer interface {
+	Do(f func(projectDir string, gomod *GoMod) error) error
+}
 
 // Workspace provides an environment to edit go.mod and go.sum.
 // The environment is created in a temp dir.
@@ -28,7 +34,7 @@ type Workspace struct {
 // After that, Do changes back the current dir and remove the created workspace.
 //
 // f receives projectDir which is the project root dir.
-func (w *Workspace) Do(f func(projectDir string) error) error {
+func (w *Workspace) Do(f func(projectDir string, gomod *GoMod) error) error {
 	var err error
 	cwd := w.SourcePath
 	if cwd != "" {
@@ -60,7 +66,8 @@ func (w *Workspace) Do(f func(projectDir string) error) error {
 		deptfileutil.Copy("go.sum", filepath.Join(cwd, DeptfileSumName))
 	}
 
-	if err := f(cwd); err != nil {
+	// TODO:
+	if err := f(cwd, nil); err != nil {
 		return err
 	}
 
