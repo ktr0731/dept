@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/ktr0731/modfile"
 	"github.com/pkg/errors"
 )
 
@@ -21,6 +22,19 @@ var (
 	// ErrAlreadyExist represents deptfile alredy exist.
 	ErrAlreadyExist = errors.New("already exist")
 )
+
+// TODO: rename to Deptfile
+type GoMod struct {
+	Require []*Require
+	f       *modfile.File
+}
+
+type Require struct {
+	Path        string
+	CommandPath []string
+	Version     string
+	Indirect    bool
+}
 
 // Create creates a new deptfile.
 // If already created, Create returns ErrAlreadyExist.
