@@ -35,7 +35,6 @@ type GoMod struct {
 type Require struct {
 	Path        string
 	CommandPath []string
-	Version     string
 }
 
 // parseDeptfile parses a file which named fname as a deptfile.
@@ -90,7 +89,6 @@ func parseDeptfile(fname string) (*GoMod, *modfile.File, error) {
 
 		requires = append(requires, &Require{
 			Path:        path,
-			Version:     r.Mod.Version,
 			CommandPath: commandPath,
 		})
 		canonical.Require[i].Mod.Path = path
@@ -127,7 +125,11 @@ func convertGoModToDeptfile(fname string, gomod *GoMod) (*modfile.File, error) {
 		if f.Require[i].Indirect {
 			continue
 		}
-		req := path2req[f.Require[i].Mod.Path]
+		req, ok := path2req[f.Require[i].Mod.Path]
+		// new tool
+		if !ok {
+			continue
+		}
 		p := req.Path
 		if len(req.CommandPath) != 0 {
 			p += ":" + strings.Join(req.CommandPath, ",")
