@@ -15,11 +15,14 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Workspacer provides an environment to edit go.mod and go.sum.
 type Workspacer interface {
+	// Do copies gotool.mod and gotool.sum to the workspace.
+	// If gotool.mod is not found, Do returns ErrNotFound.
 	Do(f func(projectDir string, gomod *GoMod) error) error
 }
 
-// Workspace provides an environment to edit go.mod and go.sum.
+// Workspace is an implementation for Workspacer.
 // The environment is created in a temp dir.
 type Workspace struct {
 	// SourcePath is the root path for finding go.mod and go.sum.

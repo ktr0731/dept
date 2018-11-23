@@ -22,7 +22,7 @@ import (
 type removeCommand struct {
 	ui        cli.Ui
 	gocmd     gocmd.Command
-	workspace *deptfile.Workspace
+	workspace deptfile.Workspacer
 }
 
 func (c *removeCommand) UI() cli.Ui {
@@ -45,12 +45,7 @@ func (c *removeCommand) Run(args []string) int {
 
 		ctx := context.Background()
 
-		err := c.workspace.Do(func(projRoot string) error {
-			df, err := deptfileLoad(ctx)
-			if err != nil {
-				return err
-			}
-
+		err := c.workspace.Do(func(projRoot string, df *deptfile.GoMod) error {
 			path := args[0]
 			repo, _, err := normalizeRepo(path)
 			if err != nil {
@@ -59,10 +54,6 @@ func (c *removeCommand) Run(args []string) int {
 
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
-				// Skip indirect dependencies.
-				if r.Indirect {
-					continue
-				}
 				if repo != r.Path {
 					requires = append(requires, r.Path)
 				}
@@ -75,6 +66,7 @@ func (c *removeCommand) Run(args []string) int {
 			if err != nil {
 				return errors.Wrap(err, "failed to create a temp file which contains required Go tools in the import statement")
 			}
+			defer os.Remove("tools.go")
 			defer f.Close()
 			filegen.Generate(f, requires)
 
@@ -92,7 +84,7 @@ func (c *removeCommand) Run(args []string) int {
 func NewRemove(
 	ui cli.Ui,
 	gocmd gocmd.Command,
-	workspace *deptfile.Workspace,
+	workspace deptfile.Workspacer,
 ) cli.Command {
 	return &removeCommand{
 		ui:        ui,

@@ -51,6 +51,7 @@ type Require struct {
 // So, it is go.mod compatible.
 //
 // parseDeptfile returns ErrNotFound if fname is not found.
+// TODO: rename syntax
 func parseDeptfile(fname string) (*GoMod, *modfile.File, error) {
 	data, err := ioutil.ReadFile(fname)
 	if os.IsNotExist(err) {

@@ -62,7 +62,7 @@ func normalizeRepo(path string) (repo, ver string, err error) {
 		return "", "", errors.Wrap(err, "invalid repo passed")
 	}
 
-	path = filepath.Clean(u.Path)
+	path = filepath.Clean(u.Host + u.Path)
 
 	if i := strings.Index(path, "@"); i != -1 {
 		repo = path[:i]

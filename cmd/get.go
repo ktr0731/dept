@@ -27,7 +27,7 @@ type getCommand struct {
 	f         *flag.FlagSet
 	ui        cli.Ui
 	gocmd     gocmd.Command
-	workspace *deptfile.Workspace
+	workspace deptfile.Workspacer
 }
 
 func (c *getCommand) UI() cli.Ui {
@@ -43,11 +43,6 @@ func (c *getCommand) Help() string {
 func (c *getCommand) Synopsis() string {
 	return "Get a new tool as a dependency"
 }
-
-// Used only mocking
-var (
-	deptfileLoad = deptfile.Load
-)
 
 func (c *getCommand) Run(args []string) int {
 	c.f.Parse(args)
@@ -65,12 +60,7 @@ func (c *getCommand) Run(args []string) int {
 
 		ctx := context.Background()
 
-		err := c.workspace.Do(func(projRoot string) error {
-			df, err := deptfileLoad(ctx)
-			if err != nil {
-				return err
-			}
-
+		err := c.workspace.Do(func(projRoot string, df *deptfile.GoMod) error {
 			path := args[0]
 			repo, ver, err := normalizeRepo(path)
 			if err != nil {
@@ -81,16 +71,23 @@ func (c *getCommand) Run(args []string) int {
 				output = filepath.Base(repo)
 			}
 
-			// TODO: cleanup imports
+			// key: tool name, val: full path for the tool.
+			foundTool := map[string]string{}
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
-				if r.Indirect {
-					continue
+				if r.CommandPath != nil {
+					for _, cmdPath := range r.CommandPath {
+						requires = append(requires, r.Path+cmdPath)
+						foundTool[filepath.Base(cmdPath)] = r.Path + cmdPath
+					}
+				} else {
+					requires = append(requires, r.Path)
+					foundTool[filepath.Base(r.Path)] = r.Path
 				}
-				if p := filepath.Base(r.Path); output == p && r.Path != repo {
-					return errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", repo, r.Path)
-				}
-				requires = append(requires, r.Path)
+			}
+
+			if path, ok := foundTool[output]; ok && repo != path {
+				return errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", repo, path)
 			}
 			requires = append(requires, repo)
 
@@ -98,6 +95,7 @@ func (c *getCommand) Run(args []string) int {
 			if err != nil {
 				return errors.Wrap(err, "failed to create a temp file which contains required Go tools in the import statement")
 			}
+			defer os.Remove("tools.go")
 			defer f.Close()
 			filegen.Generate(f, requires)
 
@@ -130,7 +128,7 @@ func (c *getCommand) Run(args []string) int {
 func NewGet(
 	ui cli.Ui,
 	gocmd gocmd.Command,
-	workspace *deptfile.Workspace,
+	workspace deptfile.Workspacer,
 ) cli.Command {
 	f := flag.NewFlagSet("get", flag.ExitOnError)
 	f.String("o", "", "Output name")

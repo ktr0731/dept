@@ -2,8 +2,6 @@ package cmd_test
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"strings"
 	"testing"
 
@@ -13,32 +11,14 @@ import (
 )
 
 func TestRemoveRun(t *testing.T) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get current working dir: %s", err)
-	}
-	setup := func(m *deptfile.GoMod) func() {
-		if m == nil {
-			m = &deptfile.GoMod{
-				Require: []deptfile.Require{},
-			}
-		}
-		cleanup := cmd.ChangeDeptfileLoad(func(context.Context) (*deptfile.GoMod, error) {
-			return m, nil
-		})
-		return func() {
-			cleanup()
-			// workspace.Do also change back to current working dir.
-			// However, we will specify SourcePath to "testdata", so changed dir will be "testdata", not package dir.
-			// We change directory to package dir manually.
-			os.Chdir(cwd)
-		}
-	}
+	doNothing := func(f func(projectDir string, gomod *deptfile.GoMod) error) error { return f("", nil) }
 
 	t.Run("Run returns code 1 because no arguments passed", func(t *testing.T) {
 		mockUI := newMockUI()
-		workspace := &deptfile.Workspace{SourcePath: "testdata"}
-		cmd := cmd.NewRemove(mockUI, nil, workspace)
+		mockWorkspace := &deptfile.WorkspacerMock{
+			DoFunc: doNothing,
+		}
+		cmd := cmd.NewRemove(mockUI, nil, mockWorkspace)
 
 		code := cmd.Run(nil)
 		if code != 1 {
@@ -50,18 +30,14 @@ func TestRemoveRun(t *testing.T) {
 	})
 
 	t.Run("Run returns 1 because gotool.mod is not found", func(t *testing.T) {
-		dir, err := ioutil.TempDir("", "")
-		if err != nil {
-			t.Fatalf("failed to create a temp dir: %s", err)
+		mockUI := newMockUI()
+		mockWorkspace := &deptfile.WorkspacerMock{
+			DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
+				return deptfile.ErrNotFound
+			},
 		}
 
-		mockUI := newMockUI()
-		workspace := &deptfile.Workspace{SourcePath: dir}
-
-		cleanup := setup(nil)
-		defer cleanup()
-
-		cmd := cmd.NewRemove(mockUI, nil, workspace)
+		cmd := cmd.NewRemove(mockUI, nil, mockWorkspace)
 
 		repo := "github.com/ktr0731/go-modules-test"
 		code := cmd.Run([]string{repo})
@@ -75,11 +51,10 @@ func TestRemoveRun(t *testing.T) {
 	})
 
 	t.Run("Run returns code 0 normally", func(t *testing.T) {
-		m := &deptfile.GoMod{
-			Require: []deptfile.Require{
+		df := &deptfile.GoMod{
+			Require: []*deptfile.Require{
 				{Path: "github.com/wa2/kazusa"},
 				{Path: "github.com/wa2/setsuna"},
-				{Path: "github.com/wa2/haruki", Indirect: true},
 			},
 		}
 
@@ -90,22 +65,22 @@ func TestRemoveRun(t *testing.T) {
 			"normal":                  {repo: "github.com/wa2/kazusa"},
 			"normal with /":           {repo: "github.com/wa2/kazusa/"},
 			"normal with HTTP scheme": {repo: "https://github.com/wa2/kazusa"},
-			"indirection package is not able to remove": {repo: "github.com/wa2/haruki"},
 		}
 
 		for name, c := range cases {
 			t.Run(name, func(t *testing.T) {
-				cleanup := setup(m)
-				defer cleanup()
-
 				mockUI := newMockUI()
 				mockGoCMD := &gocmd.CommandMock{
 					ModTidyFunc: func(ctx context.Context) error {
 						return nil
 					},
 				}
-				workspace := &deptfile.Workspace{SourcePath: "testdata"}
-				cmd := cmd.NewRemove(mockUI, mockGoCMD, workspace)
+				mockWorkspace := &deptfile.WorkspacerMock{
+					DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
+						return f("", df)
+					},
+				}
+				cmd := cmd.NewRemove(mockUI, mockGoCMD, mockWorkspace)
 
 				code := cmd.Run([]string{c.repo})
 				if c.hasErr {

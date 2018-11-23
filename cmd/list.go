@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"context"
-	"flag"
 	"fmt"
 	"strings"
 
@@ -12,9 +10,8 @@ import (
 
 // listCommand list ups managed dependencies.
 type listCommand struct {
-	f         *flag.FlagSet
 	ui        cli.Ui
-	workspace *deptfile.Workspace
+	workspace deptfile.Workspacer
 }
 
 func (c *listCommand) UI() cli.Ui {
@@ -22,7 +19,7 @@ func (c *listCommand) UI() cli.Ui {
 }
 
 func (c *listCommand) Help() string {
-	return fmt.Sprintf("Usage: dept list\n\n%s", FlagUsage(c.f))
+	return fmt.Sprintf("Usage: dept list")
 }
 
 func (c *listCommand) Synopsis() string {
@@ -30,27 +27,17 @@ func (c *listCommand) Synopsis() string {
 }
 
 func (c *listCommand) Run(args []string) int {
-	c.f.Parse(args)
-
-	indirect := c.f.Lookup("i").Value.String() == "true"
-
-	args = c.f.Args()
-
 	return run(c, func() error {
-		ctx := context.Background()
-
-		err := c.workspace.Do(func(projRoot string) error {
-			df, err := deptfileLoad(ctx)
-			if err != nil {
-				return err
-			}
-
+		err := c.workspace.Do(func(projRoot string, df *deptfile.GoMod) error {
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
-				if !indirect && r.Indirect {
-					continue
+				if r.CommandPath != nil {
+					for _, cmdPath := range r.CommandPath {
+						requires = append(requires, fmt.Sprintf("%s %s", r.Path+cmdPath, r.Version))
+					}
+				} else {
+					requires = append(requires, r.Path)
 				}
-				requires = append(requires, fmt.Sprintf("%s %s", r.Path, r.Version))
 			}
 
 			c.ui.Output(strings.Join(requires, "\n"))
@@ -63,12 +50,9 @@ func (c *listCommand) Run(args []string) int {
 // NewList returns an initialized listCommand instance.
 func NewList(
 	ui cli.Ui,
-	workspace *deptfile.Workspace,
+	workspace deptfile.Workspacer,
 ) cli.Command {
-	f := flag.NewFlagSet("list", flag.ExitOnError)
-	f.Bool("i", false, "Show all packages which including indirection packages")
 	return &listCommand{
-		f:         f,
 		ui:        ui,
 		workspace: workspace,
 	}

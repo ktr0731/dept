@@ -2,8 +2,6 @@ package cmd_test
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
 	"strings"
 	"testing"
 
@@ -14,32 +12,14 @@ import (
 )
 
 func TestGetRun(t *testing.T) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get current working dir: %s", err)
-	}
-	setup := func(m *deptfile.GoMod) func() {
-		if m == nil {
-			m = &deptfile.GoMod{
-				Require: []deptfile.Require{},
-			}
-		}
-		cleanup := cmd.ChangeDeptfileLoad(func(context.Context) (*deptfile.GoMod, error) {
-			return m, nil
-		})
-		return func() {
-			cleanup()
-			// workspace.Do also change back to current working dir.
-			// However, we will specify SourcePath to "testdata", so changed dir will be "testdata", not package dir.
-			// We change directory to package dir manually.
-			os.Chdir(cwd)
-		}
-	}
+	doNothing := func(f func(projectDir string, gomod *deptfile.GoMod) error) error { return f("", nil) }
 
 	t.Run("Run returns code 1 because no arguments passed", func(t *testing.T) {
 		mockUI := newMockUI()
-		workspace := &deptfile.Workspace{SourcePath: "testdata"}
-		cmd := cmd.NewGet(mockUI, nil, workspace)
+		mockWorkspace := &deptfile.WorkspacerMock{
+			DoFunc: doNothing,
+		}
+		cmd := cmd.NewGet(mockUI, nil, mockWorkspace)
 
 		code := cmd.Run(nil)
 		if code != 1 {
@@ -51,18 +31,14 @@ func TestGetRun(t *testing.T) {
 	})
 
 	t.Run("Run returns 1 because gotool.mod is not found", func(t *testing.T) {
-		dir, err := ioutil.TempDir("", "")
-		if err != nil {
-			t.Fatalf("failed to create a temp dir: %s", err)
+		mockUI := newMockUI()
+		mockWorkspace := &deptfile.WorkspacerMock{
+			DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
+				return deptfile.ErrNotFound
+			},
 		}
 
-		mockUI := newMockUI()
-		workspace := &deptfile.Workspace{SourcePath: dir}
-
-		cleanup := setup(nil)
-		defer cleanup()
-
-		cmd := cmd.NewGet(mockUI, nil, workspace)
+		cmd := cmd.NewGet(mockUI, nil, mockWorkspace)
 
 		repo := "github.com/ktr0731/go-modules-test"
 		code := cmd.Run([]string{repo})
@@ -77,18 +53,14 @@ func TestGetRun(t *testing.T) {
 
 	t.Run("Run returns code 0 normally", func(t *testing.T) {
 		cases := map[string]struct {
-			m      *deptfile.GoMod
+			paths  []string
 			args   []string
 			update bool
 		}{
 			"get a new tool":                  {args: []string{"github.com/ktr0731/evans"}},
 			"get a new tool with HTTP scheme": {args: []string{"https://github.com/ktr0731/evans"}},
 			"update a tool": {
-				m: &deptfile.GoMod{
-					Require: []deptfile.Require{
-						{Path: "github.com/ktr0731/evans"},
-					},
-				},
+				paths:  []string{"github.com/ktr0731/evans"},
 				args:   []string{"github.com/ktr0731/evans"},
 				update: true,
 			},
@@ -97,9 +69,6 @@ func TestGetRun(t *testing.T) {
 
 		for name, c := range cases {
 			t.Run(name, func(t *testing.T) {
-				cleanup := setup(c.m)
-				defer cleanup()
-
 				mockUI := newMockUI()
 				mockGoCMD := &gocmd.CommandMock{
 					GetFunc: func(ctx context.Context, pkgs ...string) error {
@@ -109,8 +78,16 @@ func TestGetRun(t *testing.T) {
 						return nil
 					},
 				}
-				workspace := &deptfile.Workspace{SourcePath: "testdata"}
-				cmd := cmd.NewGet(mockUI, mockGoCMD, workspace)
+				mockWorkspace := &deptfile.WorkspacerMock{
+					DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
+						requires := make([]*deptfile.Require, 0, len(c.paths))
+						for _, p := range c.paths {
+							requires = append(requires, &deptfile.Require{Path: p})
+						}
+						return f("", &deptfile.GoMod{Require: requires})
+					},
+				}
+				cmd := cmd.NewGet(mockUI, mockGoCMD, mockWorkspace)
 
 				var args []string
 				if c.update {
@@ -147,12 +124,15 @@ func TestGetRun(t *testing.T) {
 				return errors.New("an error")
 			},
 		}
-		workspace := &deptfile.Workspace{SourcePath: "testdata"}
+		mockWorkspace := &deptfile.WorkspacerMock{
+			DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
+				return f("", &deptfile.GoMod{
+					Require: []*deptfile.Require{},
+				})
+			},
+		}
 
-		cleanup := setup(nil)
-		defer cleanup()
-
-		cmd := cmd.NewGet(mockUI, mockGoCMD, workspace)
+		cmd := cmd.NewGet(mockUI, mockGoCMD, mockWorkspace)
 
 		repo := "github.com/ktr0731/go-modules-test"
 		code := cmd.Run([]string{repo})
@@ -166,12 +146,6 @@ func TestGetRun(t *testing.T) {
 	})
 
 	t.Run("Run returns an error when tool names conflicted", func(t *testing.T) {
-		m := &deptfile.GoMod{
-			Require: []deptfile.Require{
-				{Path: "github.com/ktr0731/evans"},
-			},
-		}
-
 		cases := map[string]struct {
 			hasErr  bool
 			require string
@@ -187,7 +161,6 @@ func TestGetRun(t *testing.T) {
 		for name, c := range cases {
 			t.Run(name, func(t *testing.T) {
 				mockUI := newMockUI()
-				workspace := &deptfile.Workspace{SourcePath: "testdata"}
 				mockGoCMD := &gocmd.CommandMock{
 					GetFunc: func(ctx context.Context, pkgs ...string) error {
 						return nil
@@ -196,16 +169,22 @@ func TestGetRun(t *testing.T) {
 						return nil
 					},
 				}
+				mockWorkspace := &deptfile.WorkspacerMock{
+					DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
+						return f("", &deptfile.GoMod{
+							Require: []*deptfile.Require{
+								{Path: "github.com/ktr0731/evans"},
+							},
+						})
+					},
+				}
 
-				cleanup := setup(m)
-				defer cleanup()
-
-				cmd := cmd.NewGet(mockUI, mockGoCMD, workspace)
+				cmd := cmd.NewGet(mockUI, mockGoCMD, mockWorkspace)
 
 				code := cmd.Run([]string{c.require})
 				if c.hasErr {
 					if code != 1 {
-						t.Errorf("Run must return 0, but got %d", code)
+						t.Errorf("Run must return 1, but got %d", code)
 					}
 					if mockUI.ErrorWriter().String() == "" {
 						t.Error("Run must output an error message, but empty")

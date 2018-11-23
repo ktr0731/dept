@@ -45,18 +45,12 @@ func (c *buildCommand) Run(args []string) int {
 	return run(c, func() error {
 		ctx := context.Background()
 
-		err := c.workspace.Do(func(projRoot string) error {
-			df, err := deptfileLoad(ctx)
-			if err != nil {
-				return err
-			}
-
+		err := c.workspace.Do(func(projRoot string, df *deptfile.GoMod) error {
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
-				if r.Indirect {
-					continue
+				for _, cmdPath := range r.CommandPath {
+					requires = append(requires, r.Path+cmdPath)
 				}
-				requires = append(requires, r.Path)
 			}
 
 			f, err := os.Create("tools.go")
