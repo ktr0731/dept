@@ -1,13 +1,15 @@
 package deptfile
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
 	"github.com/ktr0731/modfile"
+	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 )
 
@@ -29,11 +31,113 @@ type GoMod struct {
 	f       *modfile.File
 }
 
+// Require represents a parsed direct requirement.
 type Require struct {
 	Path        string
 	CommandPath []string
 	Version     string
-	Indirect    bool
+}
+
+// parseDeptfile parses a file which named fname as a deptfile.
+// The differences between deptfile and go.mod is just one point,
+// deptfile's each path has also command paths.
+//
+// For example:
+//   "github.com/ktr0731/evans": module is github.com/ktr0731/evans, the command path is the module root.
+//   "github.com/ktr0731/itunes-cli:/itunes": module is github.com/ktr0731/itunes-cli, the command path is /itunes.
+//   "honnef.co/go/tools:/cmd/staticcheck,/cmd/unused": module is honnef.co/go/tools, command paths are /cmd/staticcheck and /cmd/unused.
+//
+// Also parseDeptfile returns the canonical modfile. It has been removed command paths.
+// So, it is go.mod compatible.
+//
+// parseDeptfile returns ErrNotFound if fname is not found.
+func parseDeptfile(fname string) (*GoMod, *modfile.File, error) {
+	data, err := ioutil.ReadFile(fname)
+	if os.IsNotExist(err) {
+		return nil, nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to open %s", fname)
+	}
+	f, err := modfile.Parse(filepath.Base(fname), data, nil)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "failed to parse %s", fname)
+	}
+
+	tmp, err := copystructure.Copy(f)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to deep copy modfile.File")
+	}
+	canonical := tmp.(*modfile.File)
+
+	// Convert from modfile.File.Require to deptfile.Require.
+	requires := make([]*Require, 0, len(f.Require))
+	for i, r := range f.Require {
+		// Skip indirect requirements because deptfile focuses on direct requirements (= managed tools) only.
+		if r.Indirect {
+			continue
+		}
+
+		var commandPath []string
+		path := r.Mod.Path
+
+		// main package is not in the module root
+		if i := strings.LastIndex(r.Mod.Path, ":"); i != -1 {
+			path = r.Mod.Path[:i]
+			commandPath = strings.Split(r.Mod.Path[i+1:], ",")
+		}
+
+		requires = append(requires, &Require{
+			Path:        path,
+			Version:     r.Mod.Version,
+			CommandPath: commandPath,
+		})
+		canonical.Require[i].Mod.Path = path
+		canonical.Require[i].Syntax.Token[0] = path
+	}
+	canonical.SetRequire(canonical.Require)
+	return &GoMod{Require: requires, f: f}, canonical, nil
+}
+
+func convertGoModToDeptfile(fname string, gomod *GoMod) (*modfile.File, error) {
+	data, err := ioutil.ReadFile(fname)
+	if os.IsNotExist(err) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to open %s", fname)
+	}
+	f, err := modfile.Parse(filepath.Base(fname), data, nil)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to parse %s", fname)
+	}
+
+	// no any additional information
+	if gomod == nil {
+		return f, nil
+	}
+
+	path2req := map[string]*Require{}
+	for _, r := range gomod.Require {
+		path2req[r.Path] = r
+	}
+
+	for i := range f.Require {
+		if f.Require[i].Indirect {
+			continue
+		}
+		req := path2req[f.Require[i].Mod.Path]
+		p := req.Path
+		if len(req.CommandPath) != 0 {
+			p += ":" + strings.Join(req.CommandPath, ",")
+		}
+		f.Require[i].Mod.Path = p
+		f.Require[i].Syntax.Token[0] = p
+	}
+
+	f.SetRequire(f.Require)
+
+	return f, nil
 }
 
 // Create creates a new deptfile.
@@ -61,35 +165,4 @@ func Create(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-// Load loads go.mod from current directory.
-// If go.mod not found, Load returns ErrNotFound.
-//
-// 'go mod' command reads go.mod as a Go modules file so that
-// we should create a Workspace and execute Do to create a temp dir
-// and copies gotool.mod and gotool.sum to there.
-func Load(ctx context.Context) (*GoMod, error) {
-	if _, err := os.Stat("go.mod"); os.IsNotExist(err) {
-		return nil, ErrNotFound
-	}
-
-	var m GoMod
-	var err error
-	var out, eout bytes.Buffer
-	cmd := exec.CommandContext(ctx, "go", "mod", "edit", "-json")
-	cmd.Stdout = &out
-	cmd.Stderr = &eout
-	if err := cmd.Run(); err != nil {
-		return nil, errors.Wrapf(err, "failed to execute 'go mod edit -json': %s", eout.String())
-	}
-
-	err = json.NewDecoder(&out).Decode(&m)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to open or decode %s", DeptfileName)
-	}
-	if err != nil {
-		return nil, errors.Wrap(err, "an error occurred in the workspace")
-	}
-	return &m, nil
 }

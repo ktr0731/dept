@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/ktr0731/dept/deptfile/internal/deptfileutil"
+	"github.com/ktr0731/modfile"
 	"github.com/pkg/errors"
 )
 
@@ -58,27 +59,49 @@ func (w *Workspace) Do(f func(projectDir string, gomod *GoMod) error) error {
 	os.Chdir(dir)
 	defer os.Chdir(cwd)
 
+	var gomod *GoMod
+	var canonicalModFile *modfile.File
+	// Parse deptfile and write out canonical formed modfile to go.mod.
+	// After that, f treats this go.mod.
 	if !w.DoNotCopy {
-		if err := deptfileutil.Copy("go.mod", filepath.Join(cwd, DeptfileName)); err != nil {
+		gomod, canonicalModFile, err = parseDeptfile(filepath.Join(cwd, DeptfileName))
+		if err == ErrNotFound {
 			return ErrNotFound
 		}
+		if err != nil {
+			return errors.Wrap(err, "failed to initialize *GoMod")
+		}
+		b, err := canonicalModFile.Format()
+		if err != nil {
+			return errors.Wrap(err, "failed to format canonicalized modfile")
+		}
+		if err := ioutil.WriteFile("go.mod", b, 0644); err != nil {
+			return errors.Wrap(err, "failed to write out go.mod")
+		}
+
 		// ignore errors because it is auto-generated file.
 		deptfileutil.Copy("go.sum", filepath.Join(cwd, DeptfileSumName))
 	}
 
-	// TODO:
-	if err := f(cwd, nil); err != nil {
+	if err := f(cwd, gomod); err != nil {
 		return err
 	}
 
-	if err := deptfileutil.Copy(filepath.Join(cwd, DeptfileName), "go.mod"); err != nil {
-		return errors.Wrap(err, "failed to copy go.mod to current dir")
+	df, err := convertGoModToDeptfile("go.mod", gomod)
+	if err != nil {
+		return errors.Wrap(err, "failed to convert from go.mod to deptfile")
 	}
-	if !w.DoNotCopy {
-		if err := deptfileutil.Copy(filepath.Join(cwd, DeptfileSumName), "go.sum"); err != nil {
-			return errors.Wrap(err, "failed to copy go.sum to current dir")
-		}
+
+	b, err := df.Format()
+	if err != nil {
+		return err
 	}
+
+	if err := ioutil.WriteFile(filepath.Join(cwd, DeptfileName), b, 0644); err != nil {
+		return errors.Wrap(err, "failed to write gotool.mod")
+	}
+
+	deptfileutil.Copy(filepath.Join(cwd, DeptfileSumName), "go.sum")
 
 	return nil
 }
