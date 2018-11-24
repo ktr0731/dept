@@ -5,6 +5,7 @@ package gocmd
 import (
 	"bytes"
 	"context"
+	"io"
 	"os/exec"
 	"strings"
 
@@ -15,6 +16,7 @@ type Command interface {
 	Get(ctx context.Context, args ...string) error
 	Build(ctx context.Context, args ...string) error
 	ModTidy(ctx context.Context) error
+	List(ctx context.Context, args ...string) (io.Reader, error)
 }
 
 func New() Command {
@@ -51,4 +53,15 @@ func (c *command) ModTidy(ctx context.Context) error {
 		return errors.Wrapf(err, "failed to execute 'go mod tidy': '%s'", eout.String())
 	}
 	return nil
+}
+
+func (c *command) List(ctx context.Context, args ...string) (io.Reader, error) {
+	var out, eout bytes.Buffer
+	cmd := exec.CommandContext(ctx, "go", append([]string{"list"}, args...)...)
+	cmd.Stdout = &out
+	cmd.Stderr = &eout
+	if err := cmd.Run(); err != nil {
+		return nil, errors.Wrapf(err, "failed to execute 'go list': '%s'", eout.String())
+	}
+	return &out, nil
 }

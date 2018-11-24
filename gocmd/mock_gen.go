@@ -5,12 +5,14 @@ package gocmd
 
 import (
 	"context"
+	"io"
 	"sync"
 )
 
 var (
 	lockCommandMockBuild   sync.RWMutex
 	lockCommandMockGet     sync.RWMutex
+	lockCommandMockList    sync.RWMutex
 	lockCommandMockModTidy sync.RWMutex
 )
 
@@ -21,18 +23,21 @@ var (
 //         // make and configure a mocked Command
 //         mockedCommand := &CommandMock{
 //             BuildFunc: func(ctx context.Context, args ...string) error {
-// 	               panic("TODO: mock out the Build method")
+// 	               panic("mock out the Build method")
 //             },
 //             GetFunc: func(ctx context.Context, args ...string) error {
-// 	               panic("TODO: mock out the Get method")
+// 	               panic("mock out the Get method")
+//             },
+//             ListFunc: func(ctx context.Context, args ...string) (io.Reader, error) {
+// 	               panic("mock out the List method")
 //             },
 //             ModTidyFunc: func(ctx context.Context) error {
-// 	               panic("TODO: mock out the ModTidy method")
+// 	               panic("mock out the ModTidy method")
 //             },
 //         }
 //
-//         // TODO: use mockedCommand in code that requires Command
-//         //       and then make assertions.
+//         // use mockedCommand in code that requires Command
+//         // and then make assertions.
 //
 //     }
 type CommandMock struct {
@@ -41,6 +46,9 @@ type CommandMock struct {
 
 	// GetFunc mocks the Get method.
 	GetFunc func(ctx context.Context, args ...string) error
+
+	// ListFunc mocks the List method.
+	ListFunc func(ctx context.Context, args ...string) (io.Reader, error)
 
 	// ModTidyFunc mocks the ModTidy method.
 	ModTidyFunc func(ctx context.Context) error
@@ -56,6 +64,13 @@ type CommandMock struct {
 		}
 		// Get holds details about calls to the Get method.
 		Get []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Args is the args argument value.
+			Args []string
+		}
+		// List holds details about calls to the List method.
+		List []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Args is the args argument value.
@@ -136,6 +151,41 @@ func (mock *CommandMock) GetCalls() []struct {
 	lockCommandMockGet.RLock()
 	calls = mock.calls.Get
 	lockCommandMockGet.RUnlock()
+	return calls
+}
+
+// List calls ListFunc.
+func (mock *CommandMock) List(ctx context.Context, args ...string) (io.Reader, error) {
+	if mock.ListFunc == nil {
+		panic("CommandMock.ListFunc: method is nil but Command.List was just called")
+	}
+	callInfo := struct {
+		Ctx  context.Context
+		Args []string
+	}{
+		Ctx:  ctx,
+		Args: args,
+	}
+	lockCommandMockList.Lock()
+	mock.calls.List = append(mock.calls.List, callInfo)
+	lockCommandMockList.Unlock()
+	return mock.ListFunc(ctx, args...)
+}
+
+// ListCalls gets all the calls that were made to List.
+// Check the length with:
+//     len(mockedCommand.ListCalls())
+func (mock *CommandMock) ListCalls() []struct {
+	Ctx  context.Context
+	Args []string
+} {
+	var calls []struct {
+		Ctx  context.Context
+		Args []string
+	}
+	lockCommandMockList.RLock()
+	calls = mock.calls.List
+	lockCommandMockList.RUnlock()
 	return calls
 }
 
