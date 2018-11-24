@@ -4,8 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/filegen"
@@ -90,6 +92,16 @@ func (c *getCommand) Run(args []string) int {
 				return errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", repo, path)
 			}
 			requires = append(requires, repo)
+			mroot, err := getModuleRoot(ctx, c.gocmd, repo)
+			if err != nil {
+				return err
+			}
+			// TODO: multi packages support
+			r := &deptfile.Require{
+				Path:        mroot,
+				CommandPath: []string{strings.TrimPrefix(repo, mroot)},
+			}
+			df.Require = append(df.Require, r)
 
 			f, err := os.Create("tools.go")
 			if err != nil {
@@ -122,6 +134,18 @@ func (c *getCommand) Run(args []string) int {
 		})
 		return err
 	})
+}
+
+func getModuleRoot(ctx context.Context, gocmd gocmd.Command, path string) (string, error) {
+	res, err := gocmd.List(ctx, "-f", `{{ .Module.Path }}`, path)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to get the module root of %s", path)
+	}
+	b, err := ioutil.ReadAll(res)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to convert io.Reader to string")
+	}
+	return strings.TrimSpace(string(b)), nil
 }
 
 // NewGet returns an initialized get command instance.

@@ -34,6 +34,7 @@ type GoMod struct {
 // Require represents a parsed direct requirement.
 type Require struct {
 	Path        string
+	Version     string
 	CommandPath []string
 }
 
@@ -89,6 +90,7 @@ func parseDeptfile(fname string) (*GoMod, *modfile.File, error) {
 
 		requires = append(requires, &Require{
 			Path:        path,
+			Version:     r.Mod.Version,
 			CommandPath: commandPath,
 		})
 		canonical.Require[i].Mod.Path = path
