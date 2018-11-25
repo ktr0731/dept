@@ -26,10 +26,10 @@ func init() {
 }
 
 // setupEnv creates a new temp dir for testing.
-// Also setupEnv copies go.mod and go.sum from testdata to the temp dir.
+// Also setupEnv copies go.mod and go.sum from cwd to the temp dir.
 // Finally, it changes current working directory to the temp dir.
 // Callers must call returned function (cleanup function) at end of each test.
-func setupEnv(t *testing.T) func() {
+func setupEnv(t *testing.T, cwd string) func() {
 	t.Helper()
 
 	dir, err := ioutil.TempDir("", "")
@@ -43,11 +43,11 @@ func setupEnv(t *testing.T) func() {
 		t.Fatalf("failed to get current dir: %s", err)
 	}
 
-	err = deptfileutil.Copy(filepath.Join(dir, deptfile.DeptfileName), filepath.Join("testdata", "normal", deptfile.DeptfileName))
+	err = deptfileutil.Copy(filepath.Join(dir, deptfile.DeptfileName), filepath.Join(cwd, deptfile.DeptfileName))
 	if err != nil {
 		t.Fatalf("failed to open and read testdata/gotool.mod: %s", err)
 	}
-	err = deptfileutil.Copy(filepath.Join(dir, deptfile.DeptfileSumName), filepath.Join("testdata", "normal", deptfile.DeptfileSumName))
+	err = deptfileutil.Copy(filepath.Join(dir, deptfile.DeptfileSumName), filepath.Join(cwd, deptfile.DeptfileSumName))
 	if err != nil {
 		t.Fatalf("failed to open and read testdata/gotool.mod: %s", err)
 	}
@@ -61,7 +61,7 @@ func setupEnv(t *testing.T) func() {
 
 func TestCreate(t *testing.T) {
 	t.Run("Create must return ErrAlreadyExist because deptfile exists", func(t *testing.T) {
-		cleanup := setupEnv(t)
+		cleanup := setupEnv(t, filepath.Join("testdata", "normal"))
 		defer cleanup()
 
 		err := deptfile.Create(context.Background())
@@ -71,7 +71,7 @@ func TestCreate(t *testing.T) {
 	})
 
 	t.Run("Create must not return errors", func(t *testing.T) {
-		cleanup := setupEnv(t)
+		cleanup := setupEnv(t, filepath.Join("testdata", "normal"))
 		defer cleanup()
 
 		if err := os.Remove(deptfile.DeptfileName); err != nil {

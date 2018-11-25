@@ -1,12 +1,14 @@
 package deptfile_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/ktr0731/dept/deptfile"
+	"github.com/ktr0731/modfile"
 	"github.com/pkg/errors"
 )
 
@@ -86,28 +88,18 @@ func TestDo(t *testing.T) {
 			},
 		}
 
-		cwd, err := os.Getwd()
-		if err != nil {
-			t.Fatalf("failed to get cwd: %s", err)
-		}
-
-		cleanup := func() {
-			os.Chdir(cwd)
-		}
-
 		for name, c := range cases {
 			t.Run(name, func(t *testing.T) {
+				cleanup := setupEnv(t, filepath.Join("testdata", c.dir))
 				defer cleanup()
 
-				srcPath := filepath.Join("testdata", c.dir)
-
-				absCWD, err := filepath.Abs(srcPath)
+				cwd, err := os.Getwd()
 				if err != nil {
-					t.Fatalf("failed to get abs path of %s", srcPath)
+					t.Fatalf("failed to get cwd: %s", err)
 				}
 
 				w := &deptfile.Workspace{
-					SourcePath: srcPath,
+					SourcePath: cwd,
 				}
 				err = w.Do(func(proj string, gomod *deptfile.GoMod) error {
 					if gomod == nil {
@@ -124,7 +116,7 @@ func TestDo(t *testing.T) {
 					if err != nil {
 						t.Fatalf("failed to get current working dir: %s", err)
 					}
-					if srcPath == newcwd {
+					if cwd == newcwd {
 						t.Errorf("current dir in Do must not be equal to dir outside of Do")
 					}
 					return nil
@@ -137,13 +129,15 @@ func TestDo(t *testing.T) {
 				if err != nil {
 					t.Errorf("failed to get current working dir: %s", err)
 				}
-				if absCWD != cwd2 {
-					t.Errorf("current working dir which called before Do and after one must be equal, but %s and %s", absCWD, cwd2)
+				if cwd != cwd2 {
+					t.Errorf("current working dir which called before Do and after one must be equal, but %s and %s", cwd, cwd2)
 				}
 
 				if _, err := os.Stat(deptfile.DeptfileName); os.IsNotExist(err) {
 					t.Errorf("gotool.mod must be in the current dir, but not found")
 				}
+
+				checkGoModSyntax(t)
 			})
 		}
 	})
@@ -161,4 +155,16 @@ func TestDo(t *testing.T) {
 			t.Errorf("workspace must return ErrNotFound because gotool.mod is not found in current working dir, but '%s'", err)
 		}
 	})
+}
+
+func checkGoModSyntax(t *testing.T) {
+	b, err := ioutil.ReadFile(deptfile.DeptfileName)
+	if err != nil {
+		t.Fatalf("failed to read %s", deptfile.DeptfileName)
+	}
+	_, err = modfile.Parse(deptfile.DeptfileName, b, nil)
+	if err != nil {
+		fmt.Println(string(b))
+		t.Fatalf("failed to parse %s: %s", deptfile.DeptfileName, err)
+	}
 }
