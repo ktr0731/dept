@@ -51,20 +51,21 @@ func TestRemoveRun(t *testing.T) {
 	})
 
 	t.Run("Run returns code 0 normally", func(t *testing.T) {
-		df := &deptfile.GoMod{
-			Require: []*deptfile.Require{
-				{Path: "github.com/wa2/kazusa"},
-				{Path: "github.com/wa2/setsuna"},
-			},
-		}
-
 		cases := map[string]struct {
-			repo   string
-			hasErr bool
+			repo     string
+			requires []*deptfile.Require
+			hasErr   bool
 		}{
-			"normal":                  {repo: "github.com/wa2/kazusa"},
-			"normal with /":           {repo: "github.com/wa2/kazusa/"},
-			"normal with HTTP scheme": {repo: "https://github.com/wa2/kazusa"},
+			"tool not found":                                       {repo: "github.com/wa2/haruki", requires: []*deptfile.Require{{Path: "github.com/wa2/kazusa"}}, hasErr: true},
+			"main package is in the module root":                   {repo: "github.com/wa2/kazusa", requires: []*deptfile.Require{{Path: "github.com/wa2/kazusa"}}},
+			"main package is in the module root with /":            {repo: "github.com/wa2/kazusa/", requires: []*deptfile.Require{{Path: "github.com/wa2/kazusa"}}},
+			"main package is in the module root  with HTTP scheme": {repo: "https://github.com/wa2/kazusa", requires: []*deptfile.Require{{Path: "github.com/wa2/kazusa"}}},
+			"main package is not in the module root": {
+				repo: "github.com/leaf/wa2/cmd/closing",
+				requires: []*deptfile.Require{
+					{Path: "github.com/leaf/wa2", CommandPath: []string{"/cmd/introductory", "/cmd/closing"}},
+				},
+			},
 		}
 
 		for name, c := range cases {
@@ -77,7 +78,9 @@ func TestRemoveRun(t *testing.T) {
 				}
 				mockWorkspace := &deptfile.WorkspacerMock{
 					DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
-						return f("", df)
+						return f("", &deptfile.GoMod{
+							Require: c.requires,
+						})
 					},
 				}
 				cmd := cmd.NewRemove(mockUI, mockGoCMD, mockWorkspace)

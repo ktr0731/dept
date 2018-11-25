@@ -52,13 +52,27 @@ func (c *removeCommand) Run(args []string) int {
 				return err
 			}
 
+			var all, cnt int
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
-				if repo != r.Path {
-					requires = append(requires, r.Path)
+				if len(r.CommandPath) == 0 {
+					all++
+					if repo != r.Path {
+						requires = append(requires, r.Path)
+						cnt++
+					}
+				} else {
+					for _, cmdPath := range r.CommandPath {
+						all++
+						p := r.Path + cmdPath
+						if repo != p {
+							requires = append(requires, r.Path+cmdPath)
+							cnt++
+						}
+					}
 				}
 			}
-			if len(requires) == len(df.Require) {
+			if all == cnt {
 				return errors.Errorf("%s not found in gotool.mod", repo)
 			}
 

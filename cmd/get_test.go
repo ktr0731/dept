@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"context"
+	"io"
 	"strings"
 	"testing"
 
@@ -77,6 +78,9 @@ func TestGetRun(t *testing.T) {
 					BuildFunc: func(ctx context.Context, pkgs ...string) error {
 						return nil
 					},
+					ListFunc: func(ctx context.Context, args ...string) (io.Reader, error) {
+						return strings.NewReader("github.com/ktr0731/evans"), nil
+					},
 				}
 				mockWorkspace := &deptfile.WorkspacerMock{
 					DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
@@ -120,8 +124,8 @@ func TestGetRun(t *testing.T) {
 	t.Run("deptfile is not modified when command failed", func(t *testing.T) {
 		mockUI := newMockUI()
 		mockGoCMD := &gocmd.CommandMock{
-			GetFunc: func(ctx context.Context, pkgs ...string) error {
-				return errors.New("an error")
+			ListFunc: func(ctx context.Context, args ...string) (io.Reader, error) {
+				return nil, errors.New("an error")
 			},
 		}
 		mockWorkspace := &deptfile.WorkspacerMock{
@@ -140,8 +144,8 @@ func TestGetRun(t *testing.T) {
 			t.Errorf("Run must be 1, but got %d", code)
 		}
 
-		if n := len(mockGoCMD.GetCalls()); n != 1 {
-			t.Errorf("Get must be called once, but actual %d (err = %s)", n, mockUI.ErrorWriter().String())
+		if n := len(mockGoCMD.ListCalls()); n != 1 {
+			t.Errorf("List must be called once, but actual %d (err = %s)", n, mockUI.ErrorWriter().String())
 		}
 	})
 
@@ -160,6 +164,11 @@ func TestGetRun(t *testing.T) {
 
 		for name, c := range cases {
 			t.Run(name, func(t *testing.T) {
+				repo, _, err := cmd.NormalizeRepo(c.require)
+				if err != nil {
+					t.Fatalf("failed to normalize c.require (%s): %s", c.require, err)
+				}
+
 				mockUI := newMockUI()
 				mockGoCMD := &gocmd.CommandMock{
 					GetFunc: func(ctx context.Context, pkgs ...string) error {
@@ -167,6 +176,9 @@ func TestGetRun(t *testing.T) {
 					},
 					BuildFunc: func(ctx context.Context, pkgs ...string) error {
 						return nil
+					},
+					ListFunc: func(ctx context.Context, args ...string) (io.Reader, error) {
+						return strings.NewReader(repo), nil
 					},
 				}
 				mockWorkspace := &deptfile.WorkspacerMock{
