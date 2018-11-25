@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/modfile"
 	"github.com/pkg/errors"
@@ -90,7 +91,11 @@ func TestDo(t *testing.T) {
 
 		for name, c := range cases {
 			t.Run(name, func(t *testing.T) {
-				cleanup := setupEnv(t, filepath.Join("testdata", c.dir))
+				testDataDir, err := filepath.Abs(filepath.Join("testdata", c.dir))
+				if err != nil {
+					t.Fatalf("failed to get abs path: %s", err)
+				}
+				cleanup := setupEnv(t, testDataDir)
 				defer cleanup()
 
 				cwd, err := os.Getwd()
@@ -138,6 +143,8 @@ func TestDo(t *testing.T) {
 				}
 
 				checkGoModSyntax(t)
+
+				assertEqualDeptfile(t, filepath.Join(testDataDir, deptfile.DeptfileName))
 			})
 		}
 	})
@@ -166,5 +173,19 @@ func checkGoModSyntax(t *testing.T) {
 	if err != nil {
 		fmt.Println(string(b))
 		t.Fatalf("failed to parse %s: %s", deptfile.DeptfileName, err)
+	}
+}
+
+func assertEqualDeptfile(t *testing.T, fname string) {
+	f1, err := ioutil.ReadFile(deptfile.DeptfileName)
+	if err != nil {
+		t.Fatalf("failed to read %s: %s", deptfile.DeptfileName, err)
+	}
+	f2, err := ioutil.ReadFile(fname)
+	if err != nil {
+		t.Fatalf("failed to read %s: %s", fname, err)
+	}
+	if diff := cmp.Diff(f1, f2); diff != "" {
+		t.Errorf("f1 is not equal to f2:\n%s", diff)
 	}
 }

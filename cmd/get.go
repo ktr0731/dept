@@ -73,6 +73,8 @@ func (c *getCommand) Run(args []string) int {
 				output = filepath.Base(repo)
 			}
 
+			// First, getCommand resolves all managed tools.
+
 			// key: tool name, val: full path for the tool.
 			foundTool := map[string]string{}
 			requireMap := map[string]*deptfile.Require{}
@@ -90,9 +92,11 @@ func (c *getCommand) Run(args []string) int {
 				}
 			}
 
+			// If a same tool name, but a difference repository found, it will conflict tool name.
 			if path, ok := foundTool[output]; ok && repo != path {
 				return errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", repo, path)
 			}
+
 			requires = append(requires, repo)
 			mroot, err := getModuleRoot(ctx, c.gocmd, repo)
 			if err != nil {
@@ -103,19 +107,24 @@ func (c *getCommand) Run(args []string) int {
 			var r *deptfile.Require
 			cmdPath := strings.TrimPrefix(repo, mroot)
 			if req, ok := requireMap[mroot]; ok {
-				if req.CommandPath == nil {
-					req.CommandPath = []string{cmdPath}
-				} else {
-					req.CommandPath = append(req.CommandPath, cmdPath)
+				if cmdPath != "" {
+					if req.CommandPath == nil {
+						req.CommandPath = []string{cmdPath}
+					} else {
+						req.CommandPath = append(req.CommandPath, cmdPath)
+					}
 				}
 				r = req
 			} else {
+				// new tool
 				r = &deptfile.Require{
-					Path:        mroot,
-					CommandPath: []string{cmdPath},
+					Path: mroot,
 				}
+				if cmdPath != "" {
+					r.CommandPath = []string{cmdPath}
+				}
+				df.Require = append(df.Require, r)
 			}
-			df.Require = append(df.Require, r)
 
 			f, err := os.Create("tools.go")
 			if err != nil {
