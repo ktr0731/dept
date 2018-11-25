@@ -43,11 +43,11 @@ func setupEnv(t *testing.T) func() {
 		t.Fatalf("failed to get current dir: %s", err)
 	}
 
-	err = deptfileutil.Copy(filepath.Join(dir, deptfile.DeptfileName), filepath.Join("testdata", deptfile.DeptfileName))
+	err = deptfileutil.Copy(filepath.Join(dir, deptfile.DeptfileName), filepath.Join("testdata", "normal", deptfile.DeptfileName))
 	if err != nil {
 		t.Fatalf("failed to open and read testdata/gotool.mod: %s", err)
 	}
-	err = deptfileutil.Copy(filepath.Join(dir, deptfile.DeptfileSumName), filepath.Join("testdata", deptfile.DeptfileSumName))
+	err = deptfileutil.Copy(filepath.Join(dir, deptfile.DeptfileSumName), filepath.Join("testdata", "normal", deptfile.DeptfileSumName))
 	if err != nil {
 		t.Fatalf("failed to open and read testdata/gotool.mod: %s", err)
 	}
