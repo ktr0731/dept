@@ -75,8 +75,10 @@ func (c *getCommand) Run(args []string) int {
 
 			// key: tool name, val: full path for the tool.
 			foundTool := map[string]string{}
+			requireMap := map[string]*deptfile.Require{}
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
+				requireMap[r.Path] = r
 				if r.CommandPath != nil {
 					for _, cmdPath := range r.CommandPath {
 						requires = append(requires, r.Path+cmdPath)
@@ -96,10 +98,22 @@ func (c *getCommand) Run(args []string) int {
 			if err != nil {
 				return err
 			}
+
 			// TODO: multi packages support
-			r := &deptfile.Require{
-				Path:        mroot,
-				CommandPath: []string{strings.TrimPrefix(repo, mroot)},
+			var r *deptfile.Require
+			cmdPath := strings.TrimPrefix(repo, mroot)
+			if req, ok := requireMap[mroot]; ok {
+				if req.CommandPath == nil {
+					req.CommandPath = []string{cmdPath}
+				} else {
+					req.CommandPath = append(req.CommandPath, cmdPath)
+				}
+				r = req
+			} else {
+				r = &deptfile.Require{
+					Path:        mroot,
+					CommandPath: []string{cmdPath},
+				}
 			}
 			df.Require = append(df.Require, r)
 

@@ -137,7 +137,13 @@ func convertGoModToDeptfile(fname string, gomod *GoMod) (*modfile.File, error) {
 			p += ":" + strings.Join(req.CommandPath, ",")
 		}
 		f.Require[i].Mod.Path = p
-		f.Require[i].Syntax.Token[0] = p
+
+		// require statement is oneline.
+		if f.Require[i].Syntax.Token[0] == "require" {
+			f.Require[i].Syntax.Token[1] = p
+		} else {
+			f.Require[i].Syntax.Token[0] = p
+		}
 	}
 
 	f.SetRequire(f.Require)

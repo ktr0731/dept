@@ -40,71 +40,111 @@ func TestDo(t *testing.T) {
 	}
 
 	t.Run("workspace changes directory to a temp dir and copies gotool.mod to there", func(t *testing.T) {
-		cwd := "testdata"
-		absCWD, err := filepath.Abs(cwd)
+		cases := map[string]struct {
+			dir        string
+			numRequire int
+			testcases  map[string]func(r *deptfile.Require) error
+		}{
+			"some required tools": {
+				dir:        "normal",
+				numRequire: 4,
+				testcases: map[string]func(r *deptfile.Require) error{
+					"github.com/ktr0731/evans": func(r *deptfile.Require) error {
+						if r.CommandPath != nil {
+							return errors.New("CommandPath must be nil if the module has main package in the module root")
+						}
+						return nil
+					},
+					"honnef.co/go/tools": func(r *deptfile.Require) error {
+						if r.CommandPath == nil {
+							return errors.New("CommandPath must not be nil if the module has main package other than the module root")
+						}
+						if n := len(r.CommandPath); n != 2 {
+							return errors.Errorf("expected 2 command in this module, but got %d", n)
+						}
+						if r.CommandPath[0] != "/cmd/staticcheck" {
+							return errors.Errorf("expected r.CommandPath[0] is '/cmd/staticcheck', but %s", r.CommandPath[0])
+						}
+						if r.CommandPath[1] != "/cmd/unused" {
+							return errors.Errorf("expected r.CommandPath[0] is '/cmd/unused', but %s", r.CommandPath[0])
+						}
+						return nil
+					},
+				},
+			},
+			"only one require tool": {
+				dir:        "oneline",
+				numRequire: 1,
+				testcases: map[string]func(r *deptfile.Require) error{
+					"github.com/ktr0731/evans": func(r *deptfile.Require) error {
+						if r.CommandPath != nil {
+							return errors.New("CommandPath must be nil if the module has main package in the module root")
+						}
+						return nil
+					},
+				},
+			},
+		}
+
+		cwd, err := os.Getwd()
 		if err != nil {
-			t.Fatalf("failed to get abs path of %s", cwd)
+			t.Fatalf("failed to get cwd: %s", err)
 		}
 
-		w := &deptfile.Workspace{
-			SourcePath: cwd,
+		cleanup := func() {
+			os.Chdir(cwd)
 		}
-		err = w.Do(func(proj string, gomod *deptfile.GoMod) error {
-			if gomod == nil {
-				t.Fatalf("deptfile must not be nil, but nil")
-			}
 
-			if n := len(gomod.Require); n != 4 {
-				t.Errorf("deptfile must have 7 required modules (managed tools), but %d", n)
-			}
+		for name, c := range cases {
+			t.Run(name, func(t *testing.T) {
+				defer cleanup()
 
-			testRequires(t, gomod.Require, map[string]func(r *deptfile.Require) error{
-				"github.com/ktr0731/evans": func(r *deptfile.Require) error {
-					if r.CommandPath != nil {
-						return errors.New("CommandPath must be nil if the module has main package in the module root")
+				srcPath := filepath.Join("testdata", c.dir)
+
+				absCWD, err := filepath.Abs(srcPath)
+				if err != nil {
+					t.Fatalf("failed to get abs path of %s", srcPath)
+				}
+
+				w := &deptfile.Workspace{
+					SourcePath: srcPath,
+				}
+				err = w.Do(func(proj string, gomod *deptfile.GoMod) error {
+					if gomod == nil {
+						t.Fatalf("deptfile must not be nil, but nil")
+					}
+
+					if n := len(gomod.Require); n != c.numRequire {
+						t.Errorf("deptfile must have %d required modules (managed tools), but %d", c.numRequire, n)
+					}
+
+					testRequires(t, gomod.Require, c.testcases)
+
+					newcwd, err := os.Getwd()
+					if err != nil {
+						t.Fatalf("failed to get current working dir: %s", err)
+					}
+					if srcPath == newcwd {
+						t.Errorf("current dir in Do must not be equal to dir outside of Do")
 					}
 					return nil
-				},
-				"honnef.co/go/tools": func(r *deptfile.Require) error {
-					if r.CommandPath == nil {
-						return errors.New("CommandPath must not be nil if the module has main package other than the module root")
-					}
-					if n := len(r.CommandPath); n != 2 {
-						return errors.Errorf("expected 2 command in this module, but got %d", n)
-					}
-					if r.CommandPath[0] != "/cmd/staticcheck" {
-						return errors.Errorf("expected r.CommandPath[0] is '/cmd/staticcheck', but %s", r.CommandPath[0])
-					}
-					if r.CommandPath[1] != "/cmd/unused" {
-						return errors.Errorf("expected r.CommandPath[0] is '/cmd/unused', but %s", r.CommandPath[0])
-					}
-					return nil
-				},
+				})
+				if err != nil {
+					t.Errorf("Do must not return errors, but got an error: %s", err)
+				}
+
+				cwd2, err := os.Getwd()
+				if err != nil {
+					t.Errorf("failed to get current working dir: %s", err)
+				}
+				if absCWD != cwd2 {
+					t.Errorf("current working dir which called before Do and after one must be equal, but %s and %s", absCWD, cwd2)
+				}
+
+				if _, err := os.Stat(deptfile.DeptfileName); os.IsNotExist(err) {
+					t.Errorf("gotool.mod must be in the current dir, but not found")
+				}
 			})
-
-			newcwd, err := os.Getwd()
-			if err != nil {
-				t.Fatalf("failed to get current working dir: %s", err)
-			}
-			if cwd == newcwd {
-				t.Errorf("current dir in Do must not be equal to dir outside of Do")
-			}
-			return nil
-		})
-		if err != nil {
-			t.Errorf("Do must not return errors, but got an error: %s", err)
-		}
-
-		cwd2, err := os.Getwd()
-		if err != nil {
-			t.Errorf("failed to get current working dir: %s", err)
-		}
-		if absCWD != cwd2 {
-			t.Errorf("current working dir which called before Do and after one must be equal, but %s and %s", absCWD, cwd2)
-		}
-
-		if _, err := os.Stat("gotool.mod"); os.IsNotExist(err) {
-			t.Errorf("gotool.mod must be in the current dir, but not found")
 		}
 	})
 
