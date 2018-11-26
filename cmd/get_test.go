@@ -103,6 +103,15 @@ func TestGetRun(t *testing.T) {
 					CommandPath: []string{"/", "/cmd/baz"},
 				},
 			},
+			"add a duplicated tool": {
+				loadedTools: []*deptfile.Require{{Path: "github.com/foo/bar", CommandPath: []string{"/cmd/baz"}}},
+				args:        []string{"github.com/foo/bar/cmd/baz"},
+				root:        "github.com/foo/bar",
+				expectedRequire: &deptfile.Require{
+					Path:        "github.com/foo/bar",
+					CommandPath: []string{"/cmd/baz"},
+				},
+			},
 			"update a tool": {
 				loadedTools:     []*deptfile.Require{{Path: "github.com/ktr0731/evans"}},
 				args:            []string{"github.com/ktr0731/evans"},

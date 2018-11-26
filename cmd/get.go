@@ -186,7 +186,22 @@ func appendRequire(reqs []*deptfile.Require, r *deptfile.Require, modRoot, uri s
 			// A module already has a tool in the module root package.
 			r.CommandPath = []string{"/", path}
 		} else {
-			r.CommandPath = append(r.CommandPath, path)
+			if len(r.CommandPath) == 0 {
+				r.CommandPath = append(r.CommandPath, path)
+			} else {
+				var duplicated bool
+				forTools(r, func(another string) bool {
+					if another == uri {
+						duplicated = true
+						return false
+					}
+					return true
+				})
+				if duplicated {
+					return reqs
+				}
+				r.CommandPath = append(r.CommandPath, path)
+			}
 		}
 	} else {
 		if r.CommandPath != nil {

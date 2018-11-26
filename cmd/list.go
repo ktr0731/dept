@@ -32,7 +32,7 @@ func (c *listCommand) Run(args []string) int {
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
 				forTools(r, func(path string) bool {
-					requires = append(requires, path)
+					requires = append(requires, fmt.Sprintf("%s %s", path, r.Version))
 					return true
 				})
 			}
