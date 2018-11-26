@@ -1,5 +1,5 @@
 package cmd
 
-func NormalizeRepo(path string) (repo, ver string, err error) {
-	return normalizeRepo(path)
+func NormalizePath(path string) (repo, ver string, err error) {
+	return normalizePath(path)
 }

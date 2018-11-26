@@ -7,12 +7,14 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/filegen"
 	"github.com/ktr0731/dept/gocmd"
 	"github.com/mitchellh/cli"
+	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
 )
 
@@ -49,7 +51,7 @@ func (c *getCommand) Synopsis() string {
 func (c *getCommand) Run(args []string) int {
 	c.f.Parse(args)
 
-	output := c.f.Lookup("o").Value.String()
+	outputName := c.f.Lookup("o").Value.String()
 	outputDir := c.f.Lookup("d").Value.String()
 	update := c.f.Lookup("u").Value.String() == "true"
 
@@ -64,67 +66,46 @@ func (c *getCommand) Run(args []string) int {
 
 		err := c.workspace.Do(func(projRoot string, df *deptfile.GoMod) error {
 			path := args[0]
-			repo, ver, err := normalizeRepo(path)
+			repo, ver, err := normalizePath(path)
 			if err != nil {
 				return err
 			}
 
-			if output == "" {
-				output = filepath.Base(repo)
+			if outputName == "" {
+				outputName = filepath.Base(repo)
 			}
 
-			// First, getCommand resolves all managed tools.
+			modRoot, err := getModuleRoot(ctx, c.gocmd, repo)
+			if err != nil {
+				return err
+			}
 
-			// key: tool name, val: full path for the tool.
-			foundTool := map[string]string{}
-			requireMap := map[string]*deptfile.Require{}
-			requires := make([]string, 0, len(df.Require))
+			var targetReq *deptfile.Require
+			importPaths := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
-				requireMap[r.Path] = r
-				if r.CommandPath != nil {
-					for _, cmdPath := range r.CommandPath {
-						requires = append(requires, r.Path+cmdPath)
-						foundTool[filepath.Base(cmdPath)] = r.Path + cmdPath
+				if r.Path == modRoot {
+					tmp, err := copystructure.Copy(r)
+					if err != nil {
+						return errors.Wrap(err, "failed to deepcopy a Require")
 					}
-				} else {
-					requires = append(requires, r.Path)
-					foundTool[filepath.Base(r.Path)] = r.Path
+					targetReq = tmp.(*deptfile.Require)
+				}
+				err := forTools(r, func(path string) error {
+					importPaths = append(importPaths, path)
+					if toolNameConflicted(r.Path, repo) {
+						return errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", repo, path)
+					}
+					return nil
+				})
+				if err != nil {
+					return err
 				}
 			}
 
-			// If a same tool name, but a difference repository found, it will conflict tool name.
-			if path, ok := foundTool[output]; ok && repo != path {
-				return errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", repo, path)
-			}
-
-			requires = append(requires, repo)
-			mroot, err := getModuleRoot(ctx, c.gocmd, repo)
-			if err != nil {
-				return err
-			}
+			importPaths = append(importPaths, repo)
 
 			// TODO: multi packages support
-			var r *deptfile.Require
-			cmdPath := strings.TrimPrefix(repo, mroot)
-			if req, ok := requireMap[mroot]; ok {
-				if cmdPath != "" {
-					if req.CommandPath == nil {
-						req.CommandPath = []string{cmdPath}
-					} else {
-						req.CommandPath = append(req.CommandPath, cmdPath)
-					}
-				}
-				r = req
-			} else {
-				// new tool
-				r = &deptfile.Require{
-					Path: mroot,
-				}
-				if cmdPath != "" {
-					r.CommandPath = []string{cmdPath}
-				}
-				df.Require = append(df.Require, r)
-			}
+			df.Require = appendRequire(df.Require, targetReq, modRoot, repo)
 
 			f, err := os.Create("tools.go")
 			if err != nil {
@@ -132,7 +113,7 @@ func (c *getCommand) Run(args []string) int {
 			}
 			defer os.Remove("tools.go")
 			defer f.Close()
-			filegen.Generate(f, requires)
+			filegen.Generate(f, importPaths)
 
 			// Always getCommand runs Get.
 			// If an unmanaged tool is passed with -u option, '// indirect' is marked
@@ -148,7 +129,7 @@ func (c *getCommand) Run(args []string) int {
 				}
 			}
 
-			binPath := filepath.Join(projRoot, outputDir, output)
+			binPath := filepath.Join(projRoot, outputDir, outputName)
 			if err := c.gocmd.Build(ctx, "-o", binPath, repo); err != nil {
 				return errors.Wrapf(err, "failed to buld %s (bin path = %s)", repo, binPath)
 			}
@@ -169,6 +150,73 @@ func getModuleRoot(ctx context.Context, gocmd gocmd.Command, path string) (strin
 		return "", errors.Wrap(err, "failed to convert io.Reader to string")
 	}
 	return strings.TrimSpace(string(b)), nil
+}
+
+// toolNameConflicted returns whether each tool in p1 and p2 conflicted.
+// Note that filepath.Base(p) is the tool name.
+//
+// If p1 and p2 are the same value, it will be regarded as not conflicted.
+func toolNameConflicted(p1, p2 string) bool {
+	if p1 == p2 {
+		return false
+	}
+	c1, c2 := filepath.Base(p1), filepath.Base(p2)
+	return c1 == c2
+}
+
+// forTools iterates r, then pass each tool path to f.
+// If f returns an error, forTools aborts and returns it.
+func forTools(r *deptfile.Require, f func(path string) error) error {
+	if len(r.CommandPath) == 0 {
+		return f(r.Path)
+	}
+	for _, t := range r.CommandPath {
+		if err := f(r.Path + t); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// appendRequire appends a tool requirment that named r to reqs.
+// If r is nil, appendRequire assigns a new one with Path=modRoot.
+// If r is nil, it means the module of r is not managed yet.
+//
+// uri is the full path for tool r.
+// modRoot is the module root of r.
+func appendRequire(reqs []*deptfile.Require, r *deptfile.Require, modRoot, uri string) []*deptfile.Require {
+	path := strings.TrimPrefix(uri, modRoot)
+	if r == nil {
+		r = &deptfile.Require{Path: modRoot}
+		if path != "" {
+			r.CommandPath = []string{path}
+		}
+		return append(reqs, r)
+	}
+	if path != "" {
+		if r.CommandPath == nil {
+			// A module already has a tool in the module root package.
+			r.CommandPath = []string{"/", path}
+		} else {
+			r.CommandPath = append(r.CommandPath, path)
+		}
+	} else {
+		if r.CommandPath != nil {
+			r.CommandPath = append(r.CommandPath, "/")
+		}
+		// If r.CommandPath is nil,
+		// it means that getCommand launched with '-u' option.
+	}
+	sort.Slice(r.CommandPath, func(i, j int) bool {
+		return len(r.CommandPath[i]) < len(r.CommandPath[j])
+	})
+	for i := range reqs {
+		if reqs[i].Path == modRoot {
+			reqs[i] = r
+			return reqs
+		}
+	}
+	panic("must not reach to here")
 }
 
 // NewGet returns an initialized get command instance.

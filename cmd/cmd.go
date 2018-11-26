@@ -55,7 +55,7 @@ func FlagUsage(f *flag.FlagSet) string {
 	return b.String()
 }
 
-func normalizeRepo(path string) (repo, ver string, err error) {
+func normalizePath(path string) (repo, ver string, err error) {
 	var u *url.URL
 	u, err = url.Parse(path)
 	if err != nil {

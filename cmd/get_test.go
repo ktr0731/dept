@@ -85,24 +85,24 @@ func TestGetRun(t *testing.T) {
 					CommandPath: []string{"/cmd/unused", "/cmd/staticcheck"},
 				},
 			},
-			// "add a new tool that is in the module root, but has command path": {
-			// 	loadedTools: []*deptfile.Require{{Path: "github.com/foo/bar", CommandPath: []string{"/cmd/baz"}}},
-			// 	args:        []string{"github.com/foo/bar"},
-			// 	root:        "github.com/foo/bar",
-			// 	expectedRequire: &deptfile.Require{
-			// 		Path:        "github.com/foo/bar",
-			// 		CommandPath: []string{"/", "/cmd/baz"},
-			// 	},
-			// },
-			// "add a new tool that is not in the module root, but has top-level command": {
-			// 	loadedTools: []*deptfile.Require{{Path: "github.com/foo/bar"}},
-			// 	args:        []string{"github.com/foo/bar/cmd/baz"},
-			// 	root:        "github.com/foo/bar",
-			// 	expectedRequire: &deptfile.Require{
-			// 		Path:        "github.com/foo/bar",
-			// 		CommandPath: []string{"/", "/cmd/baz"},
-			// 	},
-			// },
+			"add a new tool that is in the module root, but has command path": {
+				loadedTools: []*deptfile.Require{{Path: "github.com/foo/bar", CommandPath: []string{"/cmd/baz"}}},
+				args:        []string{"github.com/foo/bar"},
+				root:        "github.com/foo/bar",
+				expectedRequire: &deptfile.Require{
+					Path:        "github.com/foo/bar",
+					CommandPath: []string{"/", "/cmd/baz"},
+				},
+			},
+			"add a new tool that is not in the module root, but has top-level command": {
+				loadedTools: []*deptfile.Require{{Path: "github.com/foo/bar"}},
+				args:        []string{"github.com/foo/bar/cmd/baz"},
+				root:        "github.com/foo/bar",
+				expectedRequire: &deptfile.Require{
+					Path:        "github.com/foo/bar",
+					CommandPath: []string{"/", "/cmd/baz"},
+				},
+			},
 			"update a tool": {
 				loadedTools:     []*deptfile.Require{{Path: "github.com/ktr0731/evans"}},
 				args:            []string{"github.com/ktr0731/evans"},
@@ -221,7 +221,7 @@ func TestGetRun(t *testing.T) {
 
 		for name, c := range cases {
 			t.Run(name, func(t *testing.T) {
-				repo, _, err := cmd.NormalizeRepo(c.require)
+				repo, _, err := cmd.NormalizePath(c.require)
 				if err != nil {
 					t.Fatalf("failed to normalize c.require (%s): %s", c.require, err)
 				}

@@ -47,7 +47,7 @@ func (c *removeCommand) Run(args []string) int {
 
 		err := c.workspace.Do(func(projRoot string, df *deptfile.GoMod) error {
 			path := args[0]
-			repo, _, err := normalizeRepo(path)
+			repo, _, err := normalizePath(path)
 			if err != nil {
 				return err
 			}
