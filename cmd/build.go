@@ -28,7 +28,7 @@ func (c *buildCommand) UI() cli.Ui {
 }
 
 func (c *buildCommand) Help() string {
-	return fmt.Sprintf("Usage: dept build\n\n%s", FlagUsage(c.f))
+	return fmt.Sprintf("Usage: dept build\n\n%s", FlagUsage(c.f, false))
 }
 
 func (c *buildCommand) Synopsis() string {

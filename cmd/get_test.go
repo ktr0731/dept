@@ -15,6 +15,7 @@ import (
 
 func TestGetRun(t *testing.T) {
 	doNothing := func(f func(projectDir string, gomod *deptfile.GoMod) error) error { return f("", nil) }
+	emptyReader := strings.NewReader("")
 
 	t.Run("Run returns code 1 because no arguments passed", func(t *testing.T) {
 		mockUI := newMockUI()
@@ -34,13 +35,18 @@ func TestGetRun(t *testing.T) {
 
 	t.Run("Run returns 1 because gotool.mod is not found", func(t *testing.T) {
 		mockUI := newMockUI()
+		mockGoCMD := &gocmd.CommandMock{
+			ListFunc: func(ctx context.Context, args ...string) (io.Reader, error) {
+				return emptyReader, nil
+			},
+		}
 		mockWorkspace := &deptfile.WorkspacerMock{
 			DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
 				return deptfile.ErrNotFound
 			},
 		}
 
-		cmd := cmd.NewGet(mockUI, nil, mockWorkspace)
+		cmd := cmd.NewGet(mockUI, mockGoCMD, mockWorkspace)
 
 		repo := "github.com/ktr0731/go-modules-test"
 		code := cmd.Run([]string{repo})
@@ -278,4 +284,146 @@ func TestGetRun(t *testing.T) {
 			})
 		}
 	})
+}
+
+// Same as cmd.path.
+type path struct {
+	val  string
+	repo string
+	ver  string
+	out  string
+}
+
+func TestRepeatableFlagSet(t *testing.T) {
+	cases := []struct {
+		args               []string
+		expectedParsedArgs []*path
+		hasErr             bool
+	}{
+		{
+			args: []string{"-o", "wa2", "github.com/leaf/whitealbum2"},
+			expectedParsedArgs: []*path{
+				{
+					val:  "github.com/leaf/whitealbum2",
+					repo: "github.com/leaf/whitealbum2",
+					out:  "wa2",
+				},
+			},
+		},
+		{
+			args: []string{"-o", "wa2", "github.com/leaf/whitealbum2@v1.1.0"},
+			expectedParsedArgs: []*path{
+				{
+					val:  "github.com/leaf/whitealbum2@v1.1.0",
+					ver:  "v1.1.0",
+					repo: "github.com/leaf/whitealbum2",
+					out:  "wa2",
+				},
+			},
+		},
+		{
+			args: []string{"github.com/leaf/whitealbum2@v1.1.0"},
+			expectedParsedArgs: []*path{
+				{
+					val:  "github.com/leaf/whitealbum2@v1.1.0",
+					ver:  "v1.1.0",
+					repo: "github.com/leaf/whitealbum2",
+					out:  "whitealbum2",
+				},
+			},
+		},
+		{
+			args: []string{"-o", "wa2", "github.com/leaf/whitealbum2", "-o", "ic", "github.com/leaf/whitealbum2/introductory-chapter"},
+			expectedParsedArgs: []*path{
+				{
+					val:  "github.com/leaf/whitealbum2",
+					repo: "github.com/leaf/whitealbum2",
+					out:  "wa2",
+				},
+				{
+					val:  "github.com/leaf/whitealbum2/introductory-chapter",
+					repo: "github.com/leaf/whitealbum2/introductory-chapter",
+					out:  "ic",
+				},
+			},
+		},
+		{
+			args: []string{"-o", "wa2", "github.com/leaf/whitealbum2", "github.com/leaf/whitealbum2/introductory-chapter"},
+			expectedParsedArgs: []*path{
+				{
+					val:  "github.com/leaf/whitealbum2",
+					repo: "github.com/leaf/whitealbum2",
+					out:  "wa2",
+				},
+				{
+					val:  "github.com/leaf/whitealbum2/introductory-chapter",
+					repo: "github.com/leaf/whitealbum2/introductory-chapter",
+					out:  "introductory-chapter",
+				},
+			},
+		},
+		{
+			args: []string{"github.com/leaf/whitealbum2", "-o", "ic", "github.com/leaf/whitealbum2/introductory-chapter"},
+			expectedParsedArgs: []*path{
+				{
+					val:  "github.com/leaf/whitealbum2",
+					repo: "github.com/leaf/whitealbum2",
+					out:  "whitealbum2",
+				},
+				{
+					val:  "github.com/leaf/whitealbum2/introductory-chapter",
+					repo: "github.com/leaf/whitealbum2/introductory-chapter",
+					out:  "ic",
+				},
+			},
+		},
+		{
+			args: []string{"github.com/leaf/whitealbum2@v1.1.0", "-o", "ic", "github.com/leaf/whitealbum2/introductory-chapter@v1.0.0", "-o", "cc", "github.com/leaf/whitealbum2/closing-chapter@v1.0.1"},
+			expectedParsedArgs: []*path{
+				{
+					val:  "github.com/leaf/whitealbum2@v1.1.0",
+					repo: "github.com/leaf/whitealbum2",
+					ver:  "v1.1.0",
+					out:  "whitealbum2",
+				},
+				{
+					val:  "github.com/leaf/whitealbum2/introductory-chapter@v1.0.0",
+					repo: "github.com/leaf/whitealbum2/introductory-chapter",
+					ver:  "v1.0.0",
+					out:  "ic",
+				},
+				{
+					val:  "github.com/leaf/whitealbum2/closing-chapter@v1.0.1",
+					repo: "github.com/leaf/whitealbum2/closing-chapter",
+					ver:  "v1.0.1",
+					out:  "cc",
+				},
+			},
+		},
+		{args: []string{"-o"}, hasErr: true},
+		{args: []string{"-o", "github.com/leaf/whitealbum2"}, hasErr: true},
+		{args: []string{"github.com/leaf/whitealbum2", "-o"}, hasErr: true},
+		{args: []string{"github.com/leaf/whitealbum2", "-o", "ic"}, hasErr: true},
+	}
+
+	for _, c := range cases {
+		t.Run(strings.Join(c.args, " "), func(t *testing.T) {
+			f := cmd.RepeatableFlagSet
+			parsedArgs, err := f.Parse(c.args)
+			if c.hasErr {
+				if err == nil {
+					t.Error("RepeatableFlagSet must return an error, but got nil")
+				}
+				return
+			} else {
+				if err != nil {
+					t.Fatalf("RepeatableFlagSet must not return any errors, but got %s", err)
+				}
+			}
+			for i, expected := range c.expectedParsedArgs {
+				actual := parsedArgs[i]
+				cmd.AssertPath(t, expected.val, expected.repo, expected.ver, expected.out, actual)
+			}
+		})
+	}
 }

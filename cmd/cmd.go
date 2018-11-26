@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"net/url"
@@ -30,6 +31,8 @@ func run(c command, f func() error) int {
 	switch err {
 	case errShowHelp:
 		c.UI().Output(c.Help())
+	case context.Canceled:
+		c.UI().Error("command canceled")
 	case deptfile.ErrNotFound:
 		c.UI().Error("deptfile missing. please do 'dept init'")
 	default:
@@ -39,9 +42,13 @@ func run(c command, f func() error) int {
 }
 
 // FlagUsage gets available flags and usage from f.
-func FlagUsage(f *flag.FlagSet) string {
+func FlagUsage(f *flag.FlagSet, repeatable bool) string {
 	var b strings.Builder
-	b.WriteString("Available flags are:\n")
+	if repeatable {
+		b.WriteString("Available repeatable flags are:\n")
+	} else {
+		b.WriteString("Available flags are:\n")
+	}
 	f.VisitAll(func(f *flag.Flag) {
 		fmt.Fprintf(&b, "    -%s", f.Name)
 		name, _ := flag.UnquoteUsage(f)
@@ -52,6 +59,9 @@ func FlagUsage(f *flag.FlagSet) string {
 		}
 		fmt.Fprintf(&b, "\t%s\n", f.Usage)
 	})
+	if repeatable {
+		b.WriteString("\nNote that all repeatable flags must be put after normal flags.\n")
+	}
 	return b.String()
 }
 
