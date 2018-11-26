@@ -20,7 +20,7 @@ type buildCommand struct {
 	f         *flag.FlagSet
 	ui        cli.Ui
 	gocmd     gocmd.Command
-	workspace *deptfile.Workspace
+	workspace deptfile.Workspacer
 }
 
 func (c *buildCommand) UI() cli.Ui {
@@ -82,7 +82,7 @@ func (c *buildCommand) Run(args []string) int {
 func NewBuild(
 	ui cli.Ui,
 	gocmd gocmd.Command,
-	workspace *deptfile.Workspace,
+	workspace deptfile.Workspacer,
 ) cli.Command {
 	f := flag.NewFlagSet("build", flag.ExitOnError)
 	f.String("d", "_tools", "Output dir to store built Go tools")
