@@ -48,9 +48,10 @@ func (c *buildCommand) Run(args []string) int {
 		err := c.workspace.Do(func(projRoot string, df *deptfile.GoMod) error {
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
-				for _, cmdPath := range r.CommandPath {
-					requires = append(requires, r.Path+cmdPath)
-				}
+				forTools(r, func(path string) bool {
+					requires = append(requires, path)
+					return true
+				})
 			}
 
 			f, err := os.Create("tools.go")

@@ -31,13 +31,10 @@ func (c *listCommand) Run(args []string) int {
 		err := c.workspace.Do(func(projRoot string, df *deptfile.GoMod) error {
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
-				if r.CommandPath != nil {
-					for _, cmdPath := range r.CommandPath {
-						requires = append(requires, fmt.Sprintf("%s %s", r.Path+cmdPath, r.Version))
-					}
-				} else {
-					requires = append(requires, r.Path)
-				}
+				forTools(r, func(path string) bool {
+					requires = append(requires, path)
+					return true
+				})
 			}
 
 			c.ui.Output(strings.Join(requires, "\n"))

@@ -55,6 +55,13 @@ func FlagUsage(f *flag.FlagSet) string {
 	return b.String()
 }
 
+// normalizePath normalizes a passed path.
+// It trims any schemes like 'https://'.
+// Also, it parse the module version from path.
+// For example,
+//   'https://github.com/ktr0731/itunes-cli/itunes@latest'
+//     repo = 'github.com/ktr0731/itunes-cli/itunes'
+//     ver  = '@latest'
 func normalizePath(path string) (repo, ver string, err error) {
 	var u *url.URL
 	u, err = url.Parse(path)
@@ -71,4 +78,17 @@ func normalizePath(path string) (repo, ver string, err error) {
 		repo = path
 	}
 	return
+}
+
+// forTools iterates r, then pass each tool path to f.
+func forTools(r *deptfile.Require, f func(path string) bool) {
+	if len(r.CommandPath) == 0 {
+		f(r.Path)
+		return
+	}
+	for _, t := range r.CommandPath {
+		if ok := f(r.Path + t); !ok {
+			return
+		}
+	}
 }

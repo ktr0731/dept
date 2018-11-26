@@ -90,12 +90,14 @@ func (c *getCommand) Run(args []string) int {
 					}
 					targetReq = tmp.(*deptfile.Require)
 				}
-				err := forTools(r, func(path string) error {
+				var err error
+				forTools(r, func(path string) bool {
 					importPaths = append(importPaths, path)
 					if toolNameConflicted(r.Path, repo) {
-						return errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", repo, path)
+						err = errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", repo, path)
+						return false
 					}
-					return nil
+					return true
 				})
 				if err != nil {
 					return err
@@ -162,20 +164,6 @@ func toolNameConflicted(p1, p2 string) bool {
 	}
 	c1, c2 := filepath.Base(p1), filepath.Base(p2)
 	return c1 == c2
-}
-
-// forTools iterates r, then pass each tool path to f.
-// If f returns an error, forTools aborts and returns it.
-func forTools(r *deptfile.Require, f func(path string) error) error {
-	if len(r.CommandPath) == 0 {
-		return f(r.Path)
-	}
-	for _, t := range r.CommandPath {
-		if err := f(r.Path + t); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // appendRequire appends a tool requirment that named r to reqs.
