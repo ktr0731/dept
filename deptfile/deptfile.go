@@ -119,7 +119,11 @@ func parseDeptfile(fname string) (*GoMod, *modfile.File, error) {
 		if i := strings.LastIndex(r.Mod.Path, ":"); i != -1 {
 			path = r.Mod.Path[:i]
 			for _, toolPath := range strings.Split(r.Mod.Path[i+1:], ",") {
-				toolPaths = append(toolPaths, &Tool{Path: toolPath})
+				if i := strings.LastIndex(toolPath, "@"); i != -1 {
+					toolPaths = append(toolPaths, &Tool{Path: toolPath[:i], Name: toolPath[i+1:]})
+				} else {
+					toolPaths = append(toolPaths, &Tool{Path: toolPath})
+				}
 			}
 		} else {
 			// TODO

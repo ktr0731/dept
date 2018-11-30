@@ -66,7 +66,7 @@ func TestDo(t *testing.T) {
 							return errors.New("ToolPaths must not be nil if the module has main package other than the module root")
 						}
 						if n := len(r.ToolPaths); n != 2 {
-							return errors.Errorf("expected 2 command in this module, but got %d", n)
+							return errors.Errorf("expected 2 tools in this module, but got %d", n)
 						}
 						if r.ToolPaths[0].Path != "/cmd/staticcheck" {
 							return errors.Errorf("expected r.ToolPaths[0].Path is '/cmd/staticcheck', but %s", r.ToolPaths[0].Path)
@@ -95,8 +95,15 @@ func TestDo(t *testing.T) {
 				numRequire: 2,
 				testcases: map[string]func(r *deptfile.Require) error{
 					"github.com/ktr0731/itunes-cli": func(r *deptfile.Require) error {
-						if r.ToolPaths != nil {
-							return errors.New("ToolPaths must be nil if the module has main package in the module root")
+						if r.ToolPaths == nil {
+							return errors.Errorf("ToolPaths must not be nil, but %#v", r.ToolPaths)
+						}
+						if n := len(r.ToolPaths); n != 1 {
+							return errors.Errorf("expected 1 tool in this module, but got %d", n)
+						}
+						expectedToolPath := &deptfile.Tool{Path: "/itunes", Name: "it"}
+						if diff := cmp.Diff(expectedToolPath, r.ToolPaths[0]); diff != "" {
+							return errors.Errorf("ToolPaths[0] is wrong:\n%s", diff)
 						}
 						return nil
 					},
@@ -105,7 +112,7 @@ func TestDo(t *testing.T) {
 							return errors.New("ToolPaths must not be nil if the module has main package other than the module root")
 						}
 						if n := len(r.ToolPaths); n != 2 {
-							return errors.Errorf("expected 2 command in this module, but got %d", n)
+							return errors.Errorf("expected 2 tools in this module, but got %d", n)
 						}
 						expectedToolPath0 := &deptfile.Tool{Path: "/cmd/staticcheck", Name: "sc"}
 						if diff := cmp.Diff(expectedToolPath0, r.ToolPaths[0]); diff != "" {
