@@ -18,7 +18,6 @@ var _ deptfile.Workspacer = (*deptfile.Workspace)(nil)
 // TestDo runs tests against to testdata/gotool.mod.
 func TestDo(t *testing.T) {
 	testRequires := func(t *testing.T, r []*deptfile.Require, cond map[string]func(r *deptfile.Require) error) {
-		t.Helper()
 		passed := map[string]bool{}
 		for _, r := range r {
 			for modName, cond := range cond {
@@ -28,6 +27,10 @@ func TestDo(t *testing.T) {
 				if r.Path != modName {
 					continue
 				}
+				// TODO: uncomment it
+				// if len(r.ToolPaths) == 0 {
+				// 	t.Fatalf("%s: length of ToolPaths is 0", r.Path)
+				// }
 				if err := cond(r); err != nil {
 					t.Errorf("%s: %s", r.Path, err)
 				} else {
@@ -53,23 +56,23 @@ func TestDo(t *testing.T) {
 				numRequire: 4,
 				testcases: map[string]func(r *deptfile.Require) error{
 					"github.com/ktr0731/evans": func(r *deptfile.Require) error {
-						if r.CommandPath != nil {
-							return errors.New("CommandPath must be nil if the module has main package in the module root")
+						if r.ToolPaths != nil {
+							return errors.Errorf("ToolPaths must be nil if the module has main package in the module root, but %#v", r.ToolPaths)
 						}
 						return nil
 					},
 					"honnef.co/go/tools": func(r *deptfile.Require) error {
-						if r.CommandPath == nil {
-							return errors.New("CommandPath must not be nil if the module has main package other than the module root")
+						if r.ToolPaths == nil {
+							return errors.New("ToolPaths must not be nil if the module has main package other than the module root")
 						}
-						if n := len(r.CommandPath); n != 2 {
+						if n := len(r.ToolPaths); n != 2 {
 							return errors.Errorf("expected 2 command in this module, but got %d", n)
 						}
-						if r.CommandPath[0] != "/cmd/staticcheck" {
-							return errors.Errorf("expected r.CommandPath[0] is '/cmd/staticcheck', but %s", r.CommandPath[0])
+						if r.ToolPaths[0].Path != "/cmd/staticcheck" {
+							return errors.Errorf("expected r.ToolPaths[0].Path is '/cmd/staticcheck', but %s", r.ToolPaths[0].Path)
 						}
-						if r.CommandPath[1] != "/cmd/unused" {
-							return errors.Errorf("expected r.CommandPath[0] is '/cmd/unused', but %s", r.CommandPath[0])
+						if r.ToolPaths[1].Path != "/cmd/unused" {
+							return errors.Errorf("expected r.ToolPaths[0].Path is '/cmd/unused', but %s", r.ToolPaths[0].Path)
 						}
 						return nil
 					},
@@ -80,8 +83,37 @@ func TestDo(t *testing.T) {
 				numRequire: 1,
 				testcases: map[string]func(r *deptfile.Require) error{
 					"github.com/ktr0731/evans": func(r *deptfile.Require) error {
-						if r.CommandPath != nil {
-							return errors.New("CommandPath must be nil if the module has main package in the module root")
+						if r.ToolPaths != nil {
+							return errors.New("ToolPaths must be nil if the module has main package in the module root")
+						}
+						return nil
+					},
+				},
+			},
+			"renamed tools": {
+				dir:        "rename",
+				numRequire: 2,
+				testcases: map[string]func(r *deptfile.Require) error{
+					"github.com/ktr0731/itunes-cli": func(r *deptfile.Require) error {
+						if r.ToolPaths != nil {
+							return errors.New("ToolPaths must be nil if the module has main package in the module root")
+						}
+						return nil
+					},
+					"honnef.co/go/tools": func(r *deptfile.Require) error {
+						if r.ToolPaths == nil {
+							return errors.New("ToolPaths must not be nil if the module has main package other than the module root")
+						}
+						if n := len(r.ToolPaths); n != 2 {
+							return errors.Errorf("expected 2 command in this module, but got %d", n)
+						}
+						expectedToolPath0 := &deptfile.Tool{Path: "/cmd/staticcheck", Name: "sc"}
+						if diff := cmp.Diff(expectedToolPath0, r.ToolPaths[0]); diff != "" {
+							return errors.Errorf("ToolPaths[0] is wrong:\n%s", diff)
+						}
+						expectedToolPath1 := &deptfile.Tool{Path: "/cmd/unused"}
+						if diff := cmp.Diff(expectedToolPath1, r.ToolPaths[1]); diff != "" {
+							return errors.Errorf("ToolPaths[1] is wrong:\n%s", diff)
 						}
 						return nil
 					},

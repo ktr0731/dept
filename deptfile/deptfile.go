@@ -32,10 +32,43 @@ type GoMod struct {
 }
 
 // Require represents a parsed direct requirement.
+// A Require has least one Tool.
 type Require struct {
-	Path        string
-	Version     string
-	CommandPath []string
+	Path    string
+	Version string
+	// TODO: root package representation
+	ToolPaths []*Tool
+}
+
+func (r *Require) format() string {
+	s := r.Path
+	if len(r.ToolPaths) == 0 {
+		return s
+	}
+	toolPaths := make([]string, 0, len(r.ToolPaths))
+	for _, t := range r.ToolPaths {
+		toolPaths = append(toolPaths, t.format())
+	}
+	s += ":" + strings.Join(toolPaths, ",")
+	return s
+}
+
+// Tool represents a tool that is belongs to a module.
+// In deptfile representation, a module is represents as a Require.
+// Path is the absolute tool path from the module root.
+// If Path is empty, it means the package of the tool is in the module root.
+// Name is the tool name.
+type Tool struct {
+	Path string
+	Name string
+}
+
+func (t *Tool) format() string {
+	s := t.Path
+	if n := t.Name; n != "" {
+		s += "@" + n
+	}
+	return s
 }
 
 // parseDeptfile parses a file which named fname as a deptfile.
@@ -79,19 +112,23 @@ func parseDeptfile(fname string) (*GoMod, *modfile.File, error) {
 			continue
 		}
 
-		var commandPath []string
+		var toolPaths []*Tool
 		path := r.Mod.Path
 
 		// main package is not in the module root
 		if i := strings.LastIndex(r.Mod.Path, ":"); i != -1 {
 			path = r.Mod.Path[:i]
-			commandPath = strings.Split(r.Mod.Path[i+1:], ",")
+			for _, toolPath := range strings.Split(r.Mod.Path[i+1:], ",") {
+				toolPaths = append(toolPaths, &Tool{Path: toolPath})
+			}
+		} else {
+			// TODO
 		}
 
 		requires = append(requires, &Require{
-			Path:        path,
-			Version:     r.Mod.Version,
-			CommandPath: commandPath,
+			Path:      path,
+			Version:   r.Mod.Version,
+			ToolPaths: toolPaths,
 		})
 		canonical.Require[i].Mod.Path = path
 		canonical.Require[i].Syntax.Token[0] = path
@@ -132,10 +169,7 @@ func convertGoModToDeptfile(fname string, gomod *GoMod) (*modfile.File, error) {
 		if !ok {
 			continue
 		}
-		p := req.Path
-		if len(req.CommandPath) != 0 {
-			p += ":" + strings.Join(req.CommandPath, ",")
-		}
+		p := req.format()
 		f.Require[i].Mod.Path = p
 
 		// require statement is oneline.
