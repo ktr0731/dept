@@ -27,10 +27,9 @@ func TestDo(t *testing.T) {
 				if r.Path != modName {
 					continue
 				}
-				// TODO: uncomment it
-				// if len(r.ToolPaths) == 0 {
-				// 	t.Fatalf("%s: length of ToolPaths is 0", r.Path)
-				// }
+				if len(r.ToolPaths) == 0 {
+					t.Fatalf("%s: length of ToolPaths is 0", r.Path)
+				}
 				if err := cond(r); err != nil {
 					t.Errorf("%s: %s", r.Path, err)
 				} else {
@@ -56,15 +55,13 @@ func TestDo(t *testing.T) {
 				numRequire: 4,
 				testcases: map[string]func(r *deptfile.Require) error{
 					"github.com/ktr0731/evans": func(r *deptfile.Require) error {
-						if r.ToolPaths != nil {
-							return errors.Errorf("ToolPaths must be nil if the module has main package in the module root, but %#v", r.ToolPaths)
+						expectedToolPath := &deptfile.Tool{Path: "/", Name: ""}
+						if diff := cmp.Diff(expectedToolPath, r.ToolPaths[0]); diff != "" {
+							return errors.Errorf("ToolPaths[0] is wrong:\n%s", diff)
 						}
 						return nil
 					},
 					"honnef.co/go/tools": func(r *deptfile.Require) error {
-						if r.ToolPaths == nil {
-							return errors.New("ToolPaths must not be nil if the module has main package other than the module root")
-						}
 						if n := len(r.ToolPaths); n != 2 {
 							return errors.Errorf("expected 2 tools in this module, but got %d", n)
 						}
@@ -83,8 +80,9 @@ func TestDo(t *testing.T) {
 				numRequire: 1,
 				testcases: map[string]func(r *deptfile.Require) error{
 					"github.com/ktr0731/evans": func(r *deptfile.Require) error {
-						if r.ToolPaths != nil {
-							return errors.New("ToolPaths must be nil if the module has main package in the module root")
+						expectedToolPath := &deptfile.Tool{Path: "/", Name: ""}
+						if diff := cmp.Diff(expectedToolPath, r.ToolPaths[0]); diff != "" {
+							return errors.Errorf("ToolPaths[0] is wrong:\n%s", diff)
 						}
 						return nil
 					},
@@ -92,12 +90,9 @@ func TestDo(t *testing.T) {
 			},
 			"renamed tools": {
 				dir:        "rename",
-				numRequire: 2,
+				numRequire: 3,
 				testcases: map[string]func(r *deptfile.Require) error{
 					"github.com/ktr0731/itunes-cli": func(r *deptfile.Require) error {
-						if r.ToolPaths == nil {
-							return errors.Errorf("ToolPaths must not be nil, but %#v", r.ToolPaths)
-						}
 						if n := len(r.ToolPaths); n != 1 {
 							return errors.Errorf("expected 1 tool in this module, but got %d", n)
 						}
@@ -107,10 +102,17 @@ func TestDo(t *testing.T) {
 						}
 						return nil
 					},
-					"honnef.co/go/tools": func(r *deptfile.Require) error {
-						if r.ToolPaths == nil {
-							return errors.New("ToolPaths must not be nil if the module has main package other than the module root")
+					"github.com/ktr0731/evans": func(r *deptfile.Require) error {
+						if n := len(r.ToolPaths); n != 1 {
+							return errors.Errorf("expected 1 tool in this module, but got %d", n)
 						}
+						expectedToolPath := &deptfile.Tool{Path: "/", Name: "ev"}
+						if diff := cmp.Diff(expectedToolPath, r.ToolPaths[0]); diff != "" {
+							return errors.Errorf("ToolPaths[0] is wrong:\n%s", diff)
+						}
+						return nil
+					},
+					"honnef.co/go/tools": func(r *deptfile.Require) error {
 						if n := len(r.ToolPaths); n != 2 {
 							return errors.Errorf("expected 2 tools in this module, but got %d", n)
 						}
@@ -224,7 +226,7 @@ func assertEqualDeptfile(t *testing.T, fname string) {
 	if err != nil {
 		t.Fatalf("failed to read %s: %s", fname, err)
 	}
-	if diff := cmp.Diff(f1, f2); diff != "" {
+	if diff := cmp.Diff(string(f1), string(f2)); diff != "" {
 		t.Errorf("f1 is not equal to f2:\n%s", diff)
 	}
 }

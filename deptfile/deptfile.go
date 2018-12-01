@@ -42,7 +42,15 @@ type Require struct {
 
 func (r *Require) format() string {
 	s := r.Path
-	if len(r.ToolPaths) == 0 {
+	if len(r.ToolPaths) == 1 && isRootToolPath(r.ToolPaths[0]) {
+		// Special case.
+		// If number of tools is 1 and it is in the module root,
+		// format without '/'.
+		// For example, 'github.com/ktr0731/evans' or 'github.com/ktr0731/evans@ev'.
+		// Not 'github.com/ktr0731/evans:/' or 'github.com/ktr0731/evans:/@ev'.
+		if r.ToolPaths[0].Name != "" {
+			s += "@" + r.ToolPaths[0].Name
+		}
 		return s
 	}
 	toolPaths := make([]string, 0, len(r.ToolPaths))
@@ -115,7 +123,8 @@ func parseDeptfile(fname string) (*GoMod, *modfile.File, error) {
 		var toolPaths []*Tool
 		path := r.Mod.Path
 
-		// main package is not in the module root
+		// If main package is not in the module root.
+		// Else number of tools is 1 and it is in the module root package.
 		if i := strings.LastIndex(r.Mod.Path, ":"); i != -1 {
 			path = r.Mod.Path[:i]
 			for _, toolPath := range strings.Split(r.Mod.Path[i+1:], ",") {
@@ -126,7 +135,13 @@ func parseDeptfile(fname string) (*GoMod, *modfile.File, error) {
 				}
 			}
 		} else {
-			// TODO
+			toolPath := r.Mod.Path
+			if i := strings.LastIndex(toolPath, "@"); i != -1 {
+				toolPaths = append(toolPaths, &Tool{Path: "/", Name: toolPath[i+1:]})
+				path = path[:i]
+			} else {
+				toolPaths = append(toolPaths, &Tool{Path: "/"})
+			}
 		}
 
 		requires = append(requires, &Require{
@@ -214,4 +229,8 @@ func Create(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func isRootToolPath(p *Tool) bool {
+	return p.Path == "/"
 }
