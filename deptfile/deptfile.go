@@ -34,9 +34,8 @@ type GoMod struct {
 // Require represents a parsed direct requirement.
 // A Require has least one Tool.
 type Require struct {
-	Path    string
-	Version string
-	// TODO: root package representation
+	Path      string
+	Version   string
 	ToolPaths []*Tool
 }
 
@@ -88,11 +87,14 @@ func (t *Tool) format() string {
 //   "github.com/ktr0731/itunes-cli:/itunes": module is github.com/ktr0731/itunes-cli, the command path is /itunes.
 //   "honnef.co/go/tools:/cmd/staticcheck,/cmd/unused": module is honnef.co/go/tools, command paths are /cmd/staticcheck and /cmd/unused.
 //
+// Deptfile also has a rename syntax just like:
+//   "github.com/ktr0731/evans@ev"
+//   "github.com/ktr0731/itunes-cli:/itunes@it"
+//
 // Also parseDeptfile returns the canonical modfile. It has been removed command paths.
 // So, it is go.mod compatible.
 //
 // parseDeptfile returns ErrNotFound if fname is not found.
-// TODO: rename syntax
 func parseDeptfile(fname string) (*GoMod, *modfile.File, error) {
 	data, err := ioutil.ReadFile(fname)
 	if os.IsNotExist(err) {
