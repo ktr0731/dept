@@ -91,13 +91,21 @@ func normalizePath(path string) (repo, ver string, err error) {
 }
 
 // forTools iterates r, then pass each tool path to f.
+// Note that, version are ignored.
 func forTools(r *deptfile.Require, f func(path string) bool) {
-	if len(r.CommandPath) == 0 {
-		f(r.Path)
-		return
-	}
-	for _, t := range r.CommandPath {
-		if ok := f(r.Path + t); !ok {
+	forToolsWithOutputName(r, func(path, _ string) bool {
+		return f(path)
+	})
+}
+
+// forToolsWithOutputName is like forTools, but also pass outputName of each tool.
+func forToolsWithOutputName(r *deptfile.Require, f func(path, outputName string) bool) {
+	for _, t := range r.ToolPaths {
+		p := r.Path
+		if t.Path != "/" {
+			p += t.Path
+		}
+		if ok := f(p, t.Name); !ok {
 			return
 		}
 	}

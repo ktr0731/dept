@@ -55,7 +55,7 @@ func TestDo(t *testing.T) {
 				numRequire: 4,
 				testcases: map[string]func(r *deptfile.Require) error{
 					"github.com/ktr0731/evans": func(r *deptfile.Require) error {
-						expectedToolPath := &deptfile.Tool{Path: "/", Name: ""}
+						expectedToolPath := &deptfile.Tool{Path: "/"}
 						if diff := cmp.Diff(expectedToolPath, r.ToolPaths[0]); diff != "" {
 							return errors.Errorf("ToolPaths[0] is wrong:\n%s", diff)
 						}
@@ -80,7 +80,7 @@ func TestDo(t *testing.T) {
 				numRequire: 1,
 				testcases: map[string]func(r *deptfile.Require) error{
 					"github.com/ktr0731/evans": func(r *deptfile.Require) error {
-						expectedToolPath := &deptfile.Tool{Path: "/", Name: ""}
+						expectedToolPath := &deptfile.Tool{Path: "/"}
 						if diff := cmp.Diff(expectedToolPath, r.ToolPaths[0]); diff != "" {
 							return errors.Errorf("ToolPaths[0] is wrong:\n%s", diff)
 						}

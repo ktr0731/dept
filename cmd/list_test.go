@@ -15,9 +15,9 @@ func TestListRun(t *testing.T) {
 			DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
 				return f("", &deptfile.GoMod{
 					Require: []*deptfile.Require{
-						{Path: "github.com/ktr0731/evans"},
-						{Path: "github.com/ktr0731/itunes-cli", CommandPath: []string{"/itunes"}},
-						{Path: "honnef.co/go/tools", CommandPath: []string{"/cmd/unused", "/cmd/staticcheck"}},
+						{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
+						{Path: "github.com/ktr0731/itunes-cli", ToolPaths: []*deptfile.Tool{{Path: "/itunes"}}},
+						{Path: "honnef.co/go/tools", ToolPaths: []*deptfile.Tool{{Path: "/cmd/unused"}, {Path: "/cmd/statickcheck"}}},
 					},
 				})
 			},

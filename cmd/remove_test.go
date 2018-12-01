@@ -56,14 +56,27 @@ func TestRemoveRun(t *testing.T) {
 			requires []*deptfile.Require
 			hasErr   bool
 		}{
-			"tool not found":                                       {repo: "github.com/wa2/haruki", requires: []*deptfile.Require{{Path: "github.com/wa2/kazusa"}}, hasErr: true},
-			"main package is in the module root":                   {repo: "github.com/wa2/kazusa", requires: []*deptfile.Require{{Path: "github.com/wa2/kazusa"}}},
-			"main package is in the module root with /":            {repo: "github.com/wa2/kazusa/", requires: []*deptfile.Require{{Path: "github.com/wa2/kazusa"}}},
-			"main package is in the module root  with HTTP scheme": {repo: "https://github.com/wa2/kazusa", requires: []*deptfile.Require{{Path: "github.com/wa2/kazusa"}}},
+			"tool not found": {
+				repo:     "github.com/wa2/haruki",
+				requires: []*deptfile.Require{{Path: "github.com/wa2/kazusa", ToolPaths: []*deptfile.Tool{{Path: "/"}}}},
+				hasErr:   true,
+			},
+			"main package is in the module root": {
+				repo:     "github.com/wa2/kazusa",
+				requires: []*deptfile.Require{{Path: "github.com/wa2/kazusa", ToolPaths: []*deptfile.Tool{{Path: "/"}}}},
+			},
+			"main package is in the module root with /": {
+				repo:     "github.com/wa2/kazusa/",
+				requires: []*deptfile.Require{{Path: "github.com/wa2/kazusa", ToolPaths: []*deptfile.Tool{{Path: "/"}}}},
+			},
+			"main package is in the module root  with HTTP scheme": {
+				repo:     "https://github.com/wa2/kazusa",
+				requires: []*deptfile.Require{{Path: "github.com/wa2/kazusa", ToolPaths: []*deptfile.Tool{{Path: "/"}}}},
+			},
 			"main package is not in the module root": {
 				repo: "github.com/leaf/wa2/cmd/closing",
 				requires: []*deptfile.Require{
-					{Path: "github.com/leaf/wa2", CommandPath: []string{"/cmd/introductory", "/cmd/closing"}},
+					{Path: "github.com/leaf/wa2", ToolPaths: []*deptfile.Tool{{Path: "/cmd/introductory"}, {Path: "/cmd/closing"}}},
 				},
 			},
 		}

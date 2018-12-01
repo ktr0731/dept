@@ -65,6 +65,7 @@ func (r *Require) format() string {
 // Path is the absolute tool path from the module root.
 // If Path is empty, it means the package of the tool is in the module root.
 // Name is the tool name.
+// If Name is empty, it means Name is the same as filepath.Base(Path).
 type Tool struct {
 	Path string
 	Name string

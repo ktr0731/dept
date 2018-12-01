@@ -9,6 +9,7 @@ func NormalizePath(path string) (repo, ver string, err error) {
 }
 
 func AssertPath(t *testing.T, val, repo, ver, out string, actual *path) {
+	t.Helper()
 	if val != actual.val {
 		t.Errorf("val is wrong: expected = %s, actual = %s", val, actual.val)
 	}

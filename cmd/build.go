@@ -47,9 +47,13 @@ func (c *buildCommand) Run(args []string) int {
 
 		err := c.workspace.Do(func(projRoot string, df *deptfile.GoMod) error {
 			requires := make([]string, 0, len(df.Require))
+			tools := []struct {
+				path, outputName string
+			}{}
 			for _, r := range df.Require {
-				forTools(r, func(path string) bool {
+				forToolsWithOutputName(r, func(path, outputName string) bool {
 					requires = append(requires, path)
+					tools = append(tools, struct{ path, outputName string }{path, outputName})
 					return true
 				})
 			}
@@ -58,16 +62,23 @@ func (c *buildCommand) Run(args []string) int {
 			if err != nil {
 				return errors.Wrap(err, "failed to create a temp file which contains required Go tools in the import statement")
 			}
+			defer os.Remove("tools.go")
 			defer f.Close()
 			filegen.Generate(f, requires)
 
 			eg, ctx := errgroup.WithContext(ctx)
-			for _, r := range requires {
-				r := r
+			for _, t := range tools {
+				t := t
 				eg.Go(func() error {
-					binPath := filepath.Join(projRoot, outputDir, filepath.Base(r))
-					if err := c.gocmd.Build(ctx, "-o", binPath, r); err != nil {
-						return errors.Wrapf(err, "failed to buld %s (bin path = %s)", r, binPath)
+					var outputName string
+					if t.outputName != "" {
+						outputName = t.outputName
+					} else {
+						outputName = filepath.Base(t.path)
+					}
+					binPath := filepath.Join(projRoot, outputDir, outputName)
+					if err := c.gocmd.Build(ctx, "-o", binPath, t.path); err != nil {
+						return errors.Wrapf(err, "failed to buld %s (bin path = %s)", t.path, binPath)
 					}
 					return nil
 				})

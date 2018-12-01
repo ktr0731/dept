@@ -3,6 +3,7 @@ package cmd_test
 import (
 	"context"
 	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -16,6 +17,23 @@ import (
 func TestGetRun(t *testing.T) {
 	doNothing := func(f func(projectDir string, gomod *deptfile.GoMod) error) error { return f("", nil) }
 	emptyReader := strings.NewReader("")
+
+	assertBuild := func(t *testing.T, expected *deptfile.Require, cmd *gocmd.CommandMock) {
+		if n := len(cmd.BuildCalls()); n != 1 {
+			t.Errorf("Build must be called once, but actual %d", n)
+		}
+
+		buildArgs := cmd.BuildCalls()[0].Args
+		var actualName string
+		if buildArgs[0] == "-o" {
+			actualName = filepath.Base(buildArgs[1])
+		} else {
+			actualName = filepath.Base(buildArgs[0])
+		}
+		if actualName == "_tools" {
+			t.Errorf("invalid output name: %s", actualName)
+		}
+	}
 
 	t.Run("Run returns code 1 because no arguments passed", func(t *testing.T) {
 		mockUI := newMockUI()
@@ -70,65 +88,80 @@ func TestGetRun(t *testing.T) {
 			"get a new tool": {
 				args:            []string{"github.com/ktr0731/evans"},
 				root:            "github.com/ktr0731/evans",
-				expectedRequire: &deptfile.Require{Path: "github.com/ktr0731/evans"},
+				expectedRequire: &deptfile.Require{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
 			},
 			"get a new tool with HTTP scheme": {
 				args:            []string{"https://github.com/ktr0731/evans"},
 				root:            "github.com/ktr0731/evans",
-				expectedRequire: &deptfile.Require{Path: "github.com/ktr0731/evans"},
+				expectedRequire: &deptfile.Require{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
 			},
 			"get a new tool that is not in the module root": {
 				args:            []string{"github.com/ktr0731/itunes-cli/itunes"},
 				root:            "github.com/ktr0731/itunes-cli",
-				expectedRequire: &deptfile.Require{Path: "github.com/ktr0731/itunes-cli", CommandPath: []string{"/itunes"}},
+				expectedRequire: &deptfile.Require{Path: "github.com/ktr0731/itunes-cli", ToolPaths: []*deptfile.Tool{{Path: "/itunes"}}},
 			},
 			"add a new tool that is not in the module root": {
-				loadedTools: []*deptfile.Require{{Path: "honnef.co/go/tools", CommandPath: []string{"/cmd/unused"}}},
+				loadedTools: []*deptfile.Require{{Path: "honnef.co/go/tools", ToolPaths: []*deptfile.Tool{{Path: "/cmd/unused"}}}},
 				args:        []string{"honnef.co/go/tools/cmd/staticcheck"},
 				root:        "honnef.co/go/tools",
 				expectedRequire: &deptfile.Require{
-					Path:        "honnef.co/go/tools",
-					CommandPath: []string{"/cmd/unused", "/cmd/staticcheck"},
+					Path: "honnef.co/go/tools",
+					ToolPaths: []*deptfile.Tool{
+						{Path: "/cmd/unused"},
+						{Path: "/cmd/staticcheck"},
+					},
 				},
 			},
 			"add a new tool that is in the module root, but has command path": {
-				loadedTools: []*deptfile.Require{{Path: "github.com/foo/bar", CommandPath: []string{"/cmd/baz"}}},
+				loadedTools: []*deptfile.Require{{Path: "github.com/foo/bar", ToolPaths: []*deptfile.Tool{{Path: "/cmd/baz"}}}},
 				args:        []string{"github.com/foo/bar"},
 				root:        "github.com/foo/bar",
 				expectedRequire: &deptfile.Require{
-					Path:        "github.com/foo/bar",
-					CommandPath: []string{"/", "/cmd/baz"},
+					Path: "github.com/foo/bar",
+					ToolPaths: []*deptfile.Tool{
+						{Path: "/"},
+						{Path: "/cmd/baz"},
+					},
 				},
 			},
 			"add a new tool that is not in the module root, but has top-level command": {
-				loadedTools: []*deptfile.Require{{Path: "github.com/foo/bar"}},
-				args:        []string{"github.com/foo/bar/cmd/baz"},
-				root:        "github.com/foo/bar",
+				loadedTools: []*deptfile.Require{
+					{Path: "github.com/foo/bar", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
+				},
+				args: []string{"github.com/foo/bar/cmd/baz"},
+				root: "github.com/foo/bar",
 				expectedRequire: &deptfile.Require{
-					Path:        "github.com/foo/bar",
-					CommandPath: []string{"/", "/cmd/baz"},
+					Path: "github.com/foo/bar",
+					ToolPaths: []*deptfile.Tool{
+						{Path: "/"},
+						{Path: "/cmd/baz"},
+					},
 				},
 			},
 			"add a duplicated tool": {
-				loadedTools: []*deptfile.Require{{Path: "github.com/foo/bar", CommandPath: []string{"/cmd/baz"}}},
-				args:        []string{"github.com/foo/bar/cmd/baz"},
-				root:        "github.com/foo/bar",
+				loadedTools: []*deptfile.Require{
+					{Path: "github.com/foo/bar", ToolPaths: []*deptfile.Tool{{Path: "/cmd/baz"}}},
+				},
+				args: []string{"github.com/foo/bar/cmd/baz"},
+				root: "github.com/foo/bar",
 				expectedRequire: &deptfile.Require{
-					Path:        "github.com/foo/bar",
-					CommandPath: []string{"/cmd/baz"},
+					Path:      "github.com/foo/bar",
+					ToolPaths: []*deptfile.Tool{{Path: "/cmd/baz"}},
 				},
 			},
 			"update a tool": {
-				loadedTools:     []*deptfile.Require{{Path: "github.com/ktr0731/evans"}},
+				loadedTools: []*deptfile.Require{
+					{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
+				},
 				args:            []string{"github.com/ktr0731/evans"},
 				root:            "github.com/ktr0731/evans",
-				expectedRequire: &deptfile.Require{Path: "github.com/ktr0731/evans"},
+				expectedRequire: &deptfile.Require{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
 				update:          true,
 			},
 			"-u also works if the specified tool is not found": {
 				args:            []string{"github.com/ktr0731/evans"},
 				root:            "github.com/ktr0731/evans",
-				expectedRequire: &deptfile.Require{Path: "github.com/ktr0731/evans"},
+				expectedRequire: &deptfile.Require{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
 				update:          true,
 			},
 		}
@@ -157,8 +190,8 @@ func TestGetRun(t *testing.T) {
 						if n := len(df.Require); n != 1 {
 							t.Fatalf("expected only 1 tool, but %d", n)
 						}
-						if diff := cmp.Diff(df.Require[0], c.expectedRequire); diff != "" {
-							t.Fatalf("modified deptfile.GoMod is not equal to the expected one:\n%s", diff)
+						if diff := cmp.Diff(c.expectedRequire, df.Require[0]); diff != "" {
+							t.Fatalf("modified deptfile.Require is not equal to the expected one:\n%s", diff)
 						}
 						return nil
 					},
@@ -186,9 +219,7 @@ func TestGetRun(t *testing.T) {
 					}
 				}
 
-				if n := len(mockGoCMD.BuildCalls()); n != 1 {
-					t.Errorf("Build must be called once, but actual %d", n)
-				}
+				assertBuild(t, c.expectedRequire, mockGoCMD)
 			})
 		}
 	})
@@ -257,7 +288,7 @@ func TestGetRun(t *testing.T) {
 					DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
 						return f("", &deptfile.GoMod{
 							Require: []*deptfile.Require{
-								{Path: "github.com/ktr0731/evans"},
+								{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
 							},
 						})
 					},
@@ -328,7 +359,6 @@ func TestRepeatableFlagSet(t *testing.T) {
 					val:  "github.com/leaf/whitealbum2@v1.1.0",
 					ver:  "v1.1.0",
 					repo: "github.com/leaf/whitealbum2",
-					out:  "whitealbum2",
 				},
 			},
 		},
@@ -358,7 +388,6 @@ func TestRepeatableFlagSet(t *testing.T) {
 				{
 					val:  "github.com/leaf/whitealbum2/introductory-chapter",
 					repo: "github.com/leaf/whitealbum2/introductory-chapter",
-					out:  "introductory-chapter",
 				},
 			},
 		},
@@ -368,7 +397,6 @@ func TestRepeatableFlagSet(t *testing.T) {
 				{
 					val:  "github.com/leaf/whitealbum2",
 					repo: "github.com/leaf/whitealbum2",
-					out:  "whitealbum2",
 				},
 				{
 					val:  "github.com/leaf/whitealbum2/introductory-chapter",
@@ -384,7 +412,6 @@ func TestRepeatableFlagSet(t *testing.T) {
 					val:  "github.com/leaf/whitealbum2@v1.1.0",
 					repo: "github.com/leaf/whitealbum2",
 					ver:  "v1.1.0",
-					out:  "whitealbum2",
 				},
 				{
 					val:  "github.com/leaf/whitealbum2/introductory-chapter@v1.0.0",

@@ -119,7 +119,7 @@ func (c *getCommand) Run(args []string) int {
 
 				importPaths = append(importPaths, path.repo)
 
-				df.Require = appendRequire(df.Require, targetReq, path.modRoot, path.repo)
+				df.Require = appendRequire(df.Require, targetReq, path)
 			}
 
 			f, err := os.Create("tools.go")
@@ -150,13 +150,10 @@ func (c *getCommand) Run(args []string) int {
 				}
 			}
 			eg, ctx := errgroup.WithContext(ctx)
-			for i, path := range paths {
-				i := i
+			for _, path := range paths {
 				path := path
 				eg.Go(func() error {
 					defer handlePanic()
-					fmt.Printf("gorutine %d start for %s (%s)\n", i, path.repo, path.out)
-					defer fmt.Printf("gorutine %d finished\n", i)
 
 					// If also -u is passed, update repo to the latest.
 					if update && path.ver == "" {
@@ -165,7 +162,12 @@ func (c *getCommand) Run(args []string) int {
 						}
 					}
 
-					binPath := filepath.Join(outputDir, path.out)
+					var binPath string
+					if path.out != "" {
+						binPath = filepath.Join(outputDir, path.out)
+					} else {
+						binPath = filepath.Join(outputDir, filepath.Base(path.repo))
+					}
 					if err := c.gocmd.Build(ctx, "-o", binPath, path.repo); err != nil {
 						return errors.Wrapf(err, "failed to buld %s (bin path = %s)", path.repo, binPath)
 					}
@@ -234,49 +236,49 @@ func toolNameConflicted(p1, p2 string) bool {
 //
 // uri is the full path for tool r.
 // modRoot is the module root of r.
-func appendRequire(reqs []*deptfile.Require, r *deptfile.Require, modRoot, uri string) []*deptfile.Require {
-	path := strings.TrimPrefix(uri, modRoot)
+func appendRequire(reqs []*deptfile.Require, r *deptfile.Require, path *path) []*deptfile.Require {
+	// defer pp.Println(reqs)
+	// TODO: version, rename?
+
+	toolPath := strings.TrimPrefix(path.repo, path.modRoot)
+	// a new module
 	if r == nil {
-		r = &deptfile.Require{Path: modRoot}
-		if path != "" {
-			r.CommandPath = []string{path}
+		r = &deptfile.Require{Path: path.modRoot}
+		var t *deptfile.Tool
+		// tool is not in the module root.
+		if toolPath != "" {
+			t = &deptfile.Tool{Path: toolPath, Name: path.out}
+		} else {
+			t = &deptfile.Tool{Path: "/", Name: path.out}
 		}
+		r.ToolPaths = append(r.ToolPaths, t)
 		return append(reqs, r)
 	}
-	if path != "" {
-		if r.CommandPath == nil {
-			// A module already has a tool in the module root package.
-			r.CommandPath = []string{"/", path}
-		} else {
-			if len(r.CommandPath) == 0 {
-				r.CommandPath = append(r.CommandPath, path)
-			} else {
-				var duplicated bool
-				forTools(r, func(another string) bool {
-					if another == uri {
-						duplicated = true
-						return false
-					}
-					return true
-				})
-				if duplicated {
-					return reqs
-				}
-				r.CommandPath = append(r.CommandPath, path)
-			}
-		}
+
+	var t *deptfile.Tool
+	if toolPath != "" {
+		t = &deptfile.Tool{Path: toolPath, Name: path.out}
 	} else {
-		if r.CommandPath != nil {
-			r.CommandPath = append(r.CommandPath, "/")
-		}
-		// If r.CommandPath is nil,
-		// it means that getCommand launched with '-u' option.
+		t = &deptfile.Tool{Path: "/", Name: path.out}
+		toolPath = "/"
 	}
-	sort.Slice(r.CommandPath, func(i, j int) bool {
-		return len(r.CommandPath[i]) < len(r.CommandPath[j])
+	var duplicated bool
+	for _, another := range r.ToolPaths {
+		if another.Path == toolPath {
+			duplicated = true
+			break
+		}
+	}
+	if duplicated {
+		return reqs
+	}
+	r.ToolPaths = append(r.ToolPaths, t)
+
+	sort.Slice(r.ToolPaths, func(i, j int) bool {
+		return len(r.ToolPaths[i].Path) < len(r.ToolPaths[j].Path)
 	})
 	for i := range reqs {
-		if reqs[i].Path == modRoot {
+		if reqs[i].Path == path.modRoot {
 			reqs[i] = r
 			return reqs
 		}
@@ -299,6 +301,7 @@ type path struct {
 	ver string
 	// out is the output name of the tool specified by path.
 	// For example, 'salias'
+	// If out is empty, it means out is same as filepath.Base(repo).
 	out string
 }
 
@@ -335,7 +338,7 @@ func (f repeatableFlagSet) Parse(args []string) ([]*path, error) {
 			if err != nil {
 				return nil, err
 			}
-			pargs = append(pargs, &path{val: p, repo: repo, ver: ver, out: filepath.Base(repo)})
+			pargs = append(pargs, &path{val: p, repo: repo, ver: ver})
 		default:
 			if args[i] == "-o" {
 				p, out := args[i+2], args[i+1]
@@ -351,8 +354,7 @@ func (f repeatableFlagSet) Parse(args []string) ([]*path, error) {
 				if err != nil {
 					return nil, err
 				}
-				out := filepath.Base(repo)
-				pargs = append(pargs, &path{val: p, repo: repo, ver: ver, out: out})
+				pargs = append(pargs, &path{val: p, repo: repo, ver: ver})
 			}
 		}
 	}

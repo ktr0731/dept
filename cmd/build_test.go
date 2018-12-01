@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -34,11 +35,22 @@ func TestBuildRun(t *testing.T) {
 	t.Run("Run returns code 0 normally", func(t *testing.T) {
 		cases := map[string]struct {
 			loadedTools []*deptfile.Require
+			assert      func(t *testing.T, args []string)
 		}{
-			"get a new tool": {
+			"build two tools": {
 				loadedTools: []*deptfile.Require{
-					{Path: "github.com/ktr0731/evans"},
-					{Path: "github.com/ktr0731/itunes-cli", CommandPath: []string{"/itunes"}},
+					{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
+					{Path: "github.com/ktr0731/itunes-cli", ToolPaths: []*deptfile.Tool{{Path: "/itunes"}}},
+				},
+			},
+			"build renamed tools": {
+				loadedTools: []*deptfile.Require{
+					{Path: "github.com/ktr0731/itunes-cli", ToolPaths: []*deptfile.Tool{{Path: "/itunes", Name: "it"}}},
+				},
+				assert: func(t *testing.T, args []string) {
+					if n := filepath.Base(args[1]); n != "it" {
+						t.Errorf("output name must be 'it', but actual '%s'", n)
+					}
 				},
 			},
 		}
@@ -66,6 +78,11 @@ func TestBuildRun(t *testing.T) {
 
 				if n := len(mockGoCMD.BuildCalls()); n != len(c.loadedTools) {
 					t.Errorf("Build must be called %d times, but actual %d", len(c.loadedTools), n)
+				}
+
+				if c.assert != nil {
+					buildArgs := mockGoCMD.BuildCalls()[0].Args
+					c.assert(t, buildArgs)
 				}
 			})
 		}
