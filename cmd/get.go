@@ -56,20 +56,27 @@ func (c *getCommand) Synopsis() string {
 }
 
 func (c *getCommand) Run(args []string) int {
-	// Ignore errors if no normal flags provided, but repeatable flags provided.
-	var flagErr error
-	if flagErr = c.f.Parse(args); flagErr != nil && !strings.HasPrefix(flagErr.Error(), "flag provided but not defined: -o") {
-		c.UI().Error(flagErr.Error())
+	// First, parse normal flags only.
+	// If repeatable flags or args found, break the loop.
+	var normalFlags []string
+	for i := 0; i < len(args); i++ {
+		if args[i] == "-o" || !strings.HasPrefix(args[i], "-") {
+			normalFlags = args[:i]
+			break
+		}
+	}
+	if err := c.f.Parse(normalFlags); err != nil {
+		c.UI().Error(err.Error())
 		return 1
 	}
 
 	var outputDir string
 	var update bool
-	if flagErr == nil {
-		outputDir = c.f.Lookup("d").Value.String()
-		update = c.f.Lookup("u").Value.String() == "true"
-		args = c.f.Args()
-	}
+	outputDir = c.f.Lookup("d").Value.String()
+	update = c.f.Lookup("u").Value.String() == "true"
+
+	// Repeatable flags + all args.
+	args = args[len(normalFlags):]
 
 	return run(c, func() error {
 		if len(args) == 0 {
@@ -104,12 +111,18 @@ func (c *getCommand) Run(args []string) int {
 						targetReq = tmp.(*deptfile.Require)
 					}
 					var err error
+					var i int
 					forTools(r, func(importPath string) bool {
 						importPaths = append(importPaths, importPath)
-						if toolNameConflicted(r.Path, path.repo) {
+						if toolNameConflicted(importPath, path.repo) {
 							err = errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", path.repo, importPath)
 							return false
 						}
+						// If -o passed with updating, rename tool to it.
+						if importPath == path.repo && path.out != "" {
+							r.ToolPaths[i].Name = path.out
+						}
+						i++
 						return true
 					})
 					if err != nil {

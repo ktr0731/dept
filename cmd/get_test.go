@@ -20,7 +20,7 @@ func TestGetRun(t *testing.T) {
 
 	assertBuild := func(t *testing.T, expected *deptfile.Require, cmd *gocmd.CommandMock) {
 		if n := len(cmd.BuildCalls()); n != 1 {
-			t.Errorf("Build must be called once, but actual %d", n)
+			t.Fatalf("Build must be called once, but actual %d", n)
 		}
 
 		buildArgs := cmd.BuildCalls()[0].Args
@@ -162,6 +162,15 @@ func TestGetRun(t *testing.T) {
 				args:            []string{"github.com/ktr0731/evans"},
 				root:            "github.com/ktr0731/evans",
 				expectedRequire: &deptfile.Require{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
+				update:          true,
+			},
+			"update a tool with renaming": {
+				loadedTools: []*deptfile.Require{
+					{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
+				},
+				args:            []string{"-o", "ev", "github.com/ktr0731/evans"},
+				root:            "github.com/ktr0731/evans",
+				expectedRequire: &deptfile.Require{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/", Name: "ev"}}},
 				update:          true,
 			},
 		}
