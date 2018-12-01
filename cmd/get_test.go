@@ -15,7 +15,7 @@ import (
 )
 
 func TestGetRun(t *testing.T) {
-	doNothing := func(f func(projectDir string, gomod *deptfile.GoMod) error) error { return f("", nil) }
+	doNothing := func(f func(projectDir string, gomod *deptfile.File) error) error { return f("", nil) }
 	emptyReader := strings.NewReader("")
 
 	assertBuild := func(t *testing.T, expected *deptfile.Require, cmd *gocmd.CommandMock) {
@@ -59,7 +59,7 @@ func TestGetRun(t *testing.T) {
 			},
 		}
 		mockWorkspace := &deptfile.WorkspacerMock{
-			DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
+			DoFunc: func(f func(projectDir string, gomod *deptfile.File) error) error {
 				return deptfile.ErrNotFound
 			},
 		}
@@ -190,8 +190,8 @@ func TestGetRun(t *testing.T) {
 					},
 				}
 				mockWorkspace := &deptfile.WorkspacerMock{
-					DoFunc: func(f func(projectDir string, df *deptfile.GoMod) error) error {
-						df := &deptfile.GoMod{Require: c.loadedTools}
+					DoFunc: func(f func(projectDir string, df *deptfile.File) error) error {
+						df := &deptfile.File{Require: c.loadedTools}
 						if err := f("", df); err != nil {
 							return err
 						}
@@ -241,8 +241,8 @@ func TestGetRun(t *testing.T) {
 			},
 		}
 		mockWorkspace := &deptfile.WorkspacerMock{
-			DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
-				return f("", &deptfile.GoMod{
+			DoFunc: func(f func(projectDir string, gomod *deptfile.File) error) error {
+				return f("", &deptfile.File{
 					Require: []*deptfile.Require{},
 				})
 			},
@@ -294,8 +294,8 @@ func TestGetRun(t *testing.T) {
 					},
 				}
 				mockWorkspace := &deptfile.WorkspacerMock{
-					DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
-						return f("", &deptfile.GoMod{
+					DoFunc: func(f func(projectDir string, gomod *deptfile.File) error) error {
+						return f("", &deptfile.File{
 							Require: []*deptfile.Require{
 								{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
 							},

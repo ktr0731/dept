@@ -34,7 +34,7 @@ func (c *removeCommand) Help() string {
 }
 
 func (c *removeCommand) Synopsis() string {
-	return fmt.Sprintf("Remove a tool from %s", deptfile.DeptfileName)
+	return fmt.Sprintf("Remove a tool from %s", deptfile.FileName)
 }
 
 func (c *removeCommand) Run(args []string) int {
@@ -45,7 +45,7 @@ func (c *removeCommand) Run(args []string) int {
 
 		ctx := context.Background()
 
-		err := c.workspace.Do(func(projRoot string, df *deptfile.GoMod) error {
+		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
 			path := args[0]
 			repo, _, err := normalizePath(path)
 			if err != nil {

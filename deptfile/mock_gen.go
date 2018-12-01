@@ -17,7 +17,7 @@ var (
 //
 //         // make and configure a mocked Workspacer
 //         mockedWorkspacer := &WorkspacerMock{
-//             DoFunc: func(f func(projectDir string, gomod *GoMod) error) error {
+//             DoFunc: func(f func(projectDir string, gomod *File) error) error {
 // 	               panic("mock out the Do method")
 //             },
 //         }
@@ -28,25 +28,25 @@ var (
 //     }
 type WorkspacerMock struct {
 	// DoFunc mocks the Do method.
-	DoFunc func(f func(projectDir string, gomod *GoMod) error) error
+	DoFunc func(f func(projectDir string, gomod *File) error) error
 
 	// calls tracks calls to the methods.
 	calls struct {
 		// Do holds details about calls to the Do method.
 		Do []struct {
 			// F is the f argument value.
-			F func(projectDir string, gomod *GoMod) error
+			F func(projectDir string, gomod *File) error
 		}
 	}
 }
 
 // Do calls DoFunc.
-func (mock *WorkspacerMock) Do(f func(projectDir string, gomod *GoMod) error) error {
+func (mock *WorkspacerMock) Do(f func(projectDir string, gomod *File) error) error {
 	if mock.DoFunc == nil {
 		panic("WorkspacerMock.DoFunc: method is nil but Workspacer.Do was just called")
 	}
 	callInfo := struct {
-		F func(projectDir string, gomod *GoMod) error
+		F func(projectDir string, gomod *File) error
 	}{
 		F: f,
 	}
@@ -60,10 +60,10 @@ func (mock *WorkspacerMock) Do(f func(projectDir string, gomod *GoMod) error) er
 // Check the length with:
 //     len(mockedWorkspacer.DoCalls())
 func (mock *WorkspacerMock) DoCalls() []struct {
-	F func(projectDir string, gomod *GoMod) error
+	F func(projectDir string, gomod *File) error
 } {
 	var calls []struct {
-		F func(projectDir string, gomod *GoMod) error
+		F func(projectDir string, gomod *File) error
 	}
 	lockWorkspacerMockDo.RLock()
 	calls = mock.calls.Do

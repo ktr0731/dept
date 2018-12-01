@@ -14,19 +14,18 @@ import (
 )
 
 var (
-	DeptfileName    = "gotool.mod"
-	DeptfileSumName = "gotool.sum"
+	FileName    = "gotool.mod"
+	FileSumName = "gotool.sum"
 )
 
 var (
 	// ErrNotFound represents deptfile not found.
-	ErrNotFound = errors.Errorf("%s not found", DeptfileName)
+	ErrNotFound = errors.Errorf("%s not found", FileName)
 	// ErrAlreadyExist represents deptfile alredy exist.
 	ErrAlreadyExist = errors.New("already exist")
 )
 
-// TODO: rename to Deptfile
-type GoMod struct {
+type File struct {
 	Require []*Require
 	f       *modfile.File
 }
@@ -96,7 +95,7 @@ func (t *Tool) format() string {
 // So, it is go.mod compatible.
 //
 // parseDeptfile returns ErrNotFound if fname is not found.
-func parseDeptfile(fname string) (*GoMod, *modfile.File, error) {
+func parseDeptfile(fname string) (*File, *modfile.File, error) {
 	data, err := ioutil.ReadFile(fname)
 	if os.IsNotExist(err) {
 		return nil, nil, ErrNotFound
@@ -156,10 +155,10 @@ func parseDeptfile(fname string) (*GoMod, *modfile.File, error) {
 		canonical.Require[i].Syntax.Token[0] = path
 	}
 	canonical.SetRequire(canonical.Require)
-	return &GoMod{Require: requires, f: f}, canonical, nil
+	return &File{Require: requires, f: f}, canonical, nil
 }
 
-func convertGoModToDeptfile(fname string, gomod *GoMod) (*modfile.File, error) {
+func convertGoModToDeptfile(fname string, gomod *File) (*modfile.File, error) {
 	data, err := ioutil.ReadFile(fname)
 	if os.IsNotExist(err) {
 		return nil, ErrNotFound
@@ -210,7 +209,7 @@ func convertGoModToDeptfile(fname string, gomod *GoMod) (*modfile.File, error) {
 // Create creates a new deptfile.
 // If already created, Create returns ErrAlreadyExist.
 func Create(ctx context.Context) error {
-	if _, err := os.Stat(DeptfileName); err == nil {
+	if _, err := os.Stat(FileName); err == nil {
 		return ErrAlreadyExist
 	}
 
@@ -219,7 +218,7 @@ func Create(ctx context.Context) error {
 		SourcePath: ".",
 		DoNotCopy:  true,
 	}
-	err = w.Do(func(string, *GoMod) error {
+	err = w.Do(func(string, *File) error {
 		// TODO: module name
 		err = exec.CommandContext(ctx, "go", "mod", "init", "tools").Run()
 		if err != nil {

@@ -32,7 +32,7 @@ func (c *buildCommand) Help() string {
 }
 
 func (c *buildCommand) Synopsis() string {
-	return fmt.Sprintf("Build all tools based on %s", deptfile.DeptfileName)
+	return fmt.Sprintf("Build all tools based on %s", deptfile.FileName)
 }
 
 func (c *buildCommand) Run(args []string) int {
@@ -45,7 +45,7 @@ func (c *buildCommand) Run(args []string) int {
 	return run(c, func() error {
 		ctx := context.Background()
 
-		err := c.workspace.Do(func(projRoot string, df *deptfile.GoMod) error {
+		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
 			requires := make([]string, 0, len(df.Require))
 			tools := []struct {
 				path, outputName string

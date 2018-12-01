@@ -9,10 +9,10 @@ import (
 )
 
 func changeDeptfileName(name string) func() {
-	old := deptfile.DeptfileName
-	deptfile.DeptfileName = name
+	old := deptfile.FileName
+	deptfile.FileName = name
 	return func() {
-		deptfile.DeptfileName = old
+		deptfile.FileName = old
 	}
 }
 

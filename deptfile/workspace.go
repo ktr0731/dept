@@ -19,7 +19,7 @@ import (
 type Workspacer interface {
 	// Do copies gotool.mod and gotool.sum to the workspace.
 	// If gotool.mod is not found, Do returns ErrNotFound.
-	Do(f func(projectDir string, gomod *GoMod) error) error
+	Do(f func(projectDir string, gomod *File) error) error
 }
 
 // Workspace is an implementation for Workspacer.
@@ -38,7 +38,7 @@ type Workspace struct {
 // After that, Do changes back the current dir and remove the created workspace.
 //
 // f receives projectDir which is the project root dir.
-func (w *Workspace) Do(f func(projectDir string, gomod *GoMod) error) error {
+func (w *Workspace) Do(f func(projectDir string, gomod *File) error) error {
 	var err error
 	cwd := w.SourcePath
 	if cwd != "" {
@@ -62,17 +62,17 @@ func (w *Workspace) Do(f func(projectDir string, gomod *GoMod) error) error {
 	os.Chdir(dir)
 	defer os.Chdir(cwd)
 
-	var gomod *GoMod
+	var gomod *File
 	var canonicalModFile *modfile.File
 	// Parse deptfile and write out canonical formed modfile to go.mod.
 	// After that, f treats this go.mod.
 	if !w.DoNotCopy {
-		gomod, canonicalModFile, err = parseDeptfile(filepath.Join(cwd, DeptfileName))
+		gomod, canonicalModFile, err = parseDeptfile(filepath.Join(cwd, FileName))
 		if err == ErrNotFound {
 			return ErrNotFound
 		}
 		if err != nil {
-			return errors.Wrap(err, "failed to initialize *GoMod")
+			return errors.Wrap(err, "failed to initialize *File")
 		}
 		b, err := canonicalModFile.Format()
 		if err != nil {
@@ -83,7 +83,7 @@ func (w *Workspace) Do(f func(projectDir string, gomod *GoMod) error) error {
 		}
 
 		// ignore errors because it is auto-generated file.
-		deptfileutil.Copy("go.sum", filepath.Join(cwd, DeptfileSumName))
+		deptfileutil.Copy("go.sum", filepath.Join(cwd, FileSumName))
 	}
 
 	if err := f(cwd, gomod); err != nil {
@@ -100,11 +100,11 @@ func (w *Workspace) Do(f func(projectDir string, gomod *GoMod) error) error {
 		return err
 	}
 
-	if err := ioutil.WriteFile(filepath.Join(cwd, DeptfileName), b, 0644); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(cwd, FileName), b, 0644); err != nil {
 		return errors.Wrap(err, "failed to write gotool.mod")
 	}
 
-	deptfileutil.Copy(filepath.Join(cwd, DeptfileSumName), "go.sum")
+	deptfileutil.Copy(filepath.Join(cwd, FileSumName), "go.sum")
 
 	return nil
 }

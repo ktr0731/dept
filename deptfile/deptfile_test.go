@@ -43,11 +43,11 @@ func setupEnv(t *testing.T, cwd string) func() {
 		t.Fatalf("failed to get current dir: %s", err)
 	}
 
-	err = deptfileutil.Copy(filepath.Join(dir, deptfile.DeptfileName), filepath.Join(cwd, deptfile.DeptfileName))
+	err = deptfileutil.Copy(filepath.Join(dir, deptfile.FileName), filepath.Join(cwd, deptfile.FileName))
 	if err != nil {
 		t.Fatalf("failed to open and read testdata/gotool.mod: %s", err)
 	}
-	err = deptfileutil.Copy(filepath.Join(dir, deptfile.DeptfileSumName), filepath.Join(cwd, deptfile.DeptfileSumName))
+	err = deptfileutil.Copy(filepath.Join(dir, deptfile.FileSumName), filepath.Join(cwd, deptfile.FileSumName))
 	if err != nil {
 		t.Fatalf("failed to open and read testdata/gotool.mod: %s", err)
 	}
@@ -74,10 +74,10 @@ func TestCreate(t *testing.T) {
 		cleanup := setupEnv(t, filepath.Join("testdata", "normal"))
 		defer cleanup()
 
-		if err := os.Remove(deptfile.DeptfileName); err != nil {
+		if err := os.Remove(deptfile.FileName); err != nil {
 			t.Fatalf("failed to remove go.mod from the temp dir: %s", err)
 		}
-		if err := os.Remove(deptfile.DeptfileSumName); err != nil {
+		if err := os.Remove(deptfile.FileSumName); err != nil {
 			t.Fatalf("failed to remove go.sum from the temp dir: %s", err)
 		}
 
@@ -86,7 +86,7 @@ func TestCreate(t *testing.T) {
 			t.Fatalf("Create must not return an error, but got: %s", err)
 		}
 
-		if _, err := os.Stat(deptfile.DeptfileName); os.IsNotExist(err) {
+		if _, err := os.Stat(deptfile.FileName); os.IsNotExist(err) {
 			t.Error("after Create called, deptfile is in current dir, but missing")
 		}
 	})

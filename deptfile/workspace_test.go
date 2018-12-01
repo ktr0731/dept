@@ -147,7 +147,7 @@ func TestDo(t *testing.T) {
 				w := &deptfile.Workspace{
 					SourcePath: cwd,
 				}
-				err = w.Do(func(proj string, gomod *deptfile.GoMod) error {
+				err = w.Do(func(proj string, gomod *deptfile.File) error {
 					if gomod == nil {
 						t.Fatalf("deptfile must not be nil, but nil")
 					}
@@ -179,13 +179,13 @@ func TestDo(t *testing.T) {
 					t.Errorf("current working dir which called before Do and after one must be equal, but %s and %s", cwd, cwd2)
 				}
 
-				if _, err := os.Stat(deptfile.DeptfileName); os.IsNotExist(err) {
+				if _, err := os.Stat(deptfile.FileName); os.IsNotExist(err) {
 					t.Errorf("gotool.mod must be in the current dir, but not found")
 				}
 
 				checkGoModSyntax(t)
 
-				assertEqualDeptfile(t, filepath.Join(testDataDir, deptfile.DeptfileName))
+				assertEqualDeptfile(t, filepath.Join(testDataDir, deptfile.FileName))
 			})
 		}
 	})
@@ -196,7 +196,7 @@ func TestDo(t *testing.T) {
 			t.Fatalf("failed to create a temp dir: %s", err)
 		}
 		w := &deptfile.Workspace{SourcePath: dir}
-		err = w.Do(func(proj string, gomod *deptfile.GoMod) error {
+		err = w.Do(func(proj string, gomod *deptfile.File) error {
 			return nil
 		})
 		if err != deptfile.ErrNotFound {
@@ -206,21 +206,21 @@ func TestDo(t *testing.T) {
 }
 
 func checkGoModSyntax(t *testing.T) {
-	b, err := ioutil.ReadFile(deptfile.DeptfileName)
+	b, err := ioutil.ReadFile(deptfile.FileName)
 	if err != nil {
-		t.Fatalf("failed to read %s", deptfile.DeptfileName)
+		t.Fatalf("failed to read %s", deptfile.FileName)
 	}
-	_, err = modfile.Parse(deptfile.DeptfileName, b, nil)
+	_, err = modfile.Parse(deptfile.FileName, b, nil)
 	if err != nil {
 		fmt.Println(string(b))
-		t.Fatalf("failed to parse %s: %s", deptfile.DeptfileName, err)
+		t.Fatalf("failed to parse %s: %s", deptfile.FileName, err)
 	}
 }
 
 func assertEqualDeptfile(t *testing.T, fname string) {
-	f1, err := ioutil.ReadFile(deptfile.DeptfileName)
+	f1, err := ioutil.ReadFile(deptfile.FileName)
 	if err != nil {
-		t.Fatalf("failed to read %s: %s", deptfile.DeptfileName, err)
+		t.Fatalf("failed to read %s: %s", deptfile.FileName, err)
 	}
 	f2, err := ioutil.ReadFile(fname)
 	if err != nil {

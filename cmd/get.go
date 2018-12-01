@@ -90,7 +90,7 @@ func (c *getCommand) Run(args []string) int {
 			return err
 		}
 
-		err = c.workspace.Do(func(projRoot string, df *deptfile.GoMod) error {
+		err = c.workspace.Do(func(projRoot string, df *deptfile.File) error {
 			if outputDir == "" {
 				if b := os.Getenv("GOBIN"); b != "" {
 					outputDir = b

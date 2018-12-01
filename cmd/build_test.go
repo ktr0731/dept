@@ -15,7 +15,7 @@ func TestBuildRun(t *testing.T) {
 	t.Run("Run returns 1 because gotool.mod is not found", func(t *testing.T) {
 		mockUI := newMockUI()
 		mockWorkspace := &deptfile.WorkspacerMock{
-			DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
+			DoFunc: func(f func(projectDir string, gomod *deptfile.File) error) error {
 				return deptfile.ErrNotFound
 			},
 		}
@@ -64,8 +64,8 @@ func TestBuildRun(t *testing.T) {
 					},
 				}
 				mockWorkspace := &deptfile.WorkspacerMock{
-					DoFunc: func(f func(projectDir string, df *deptfile.GoMod) error) error {
-						df := &deptfile.GoMod{Require: c.loadedTools}
+					DoFunc: func(f func(projectDir string, df *deptfile.File) error) error {
+						df := &deptfile.File{Require: c.loadedTools}
 						return f("", df)
 					},
 				}

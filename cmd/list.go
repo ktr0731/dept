@@ -23,12 +23,12 @@ func (c *listCommand) Help() string {
 }
 
 func (c *listCommand) Synopsis() string {
-	return fmt.Sprintf("List ups all tools based on %s", deptfile.DeptfileName)
+	return fmt.Sprintf("List ups all tools based on %s", deptfile.FileName)
 }
 
 func (c *listCommand) Run(args []string) int {
 	return run(c, func() error {
-		err := c.workspace.Do(func(projRoot string, df *deptfile.GoMod) error {
+		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
 				forTools(r, func(path string) bool {

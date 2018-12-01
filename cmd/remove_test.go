@@ -11,7 +11,7 @@ import (
 )
 
 func TestRemoveRun(t *testing.T) {
-	doNothing := func(f func(projectDir string, gomod *deptfile.GoMod) error) error { return f("", nil) }
+	doNothing := func(f func(projectDir string, gomod *deptfile.File) error) error { return f("", nil) }
 
 	t.Run("Run returns code 1 because no arguments passed", func(t *testing.T) {
 		mockUI := newMockUI()
@@ -32,7 +32,7 @@ func TestRemoveRun(t *testing.T) {
 	t.Run("Run returns 1 because gotool.mod is not found", func(t *testing.T) {
 		mockUI := newMockUI()
 		mockWorkspace := &deptfile.WorkspacerMock{
-			DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
+			DoFunc: func(f func(projectDir string, gomod *deptfile.File) error) error {
 				return deptfile.ErrNotFound
 			},
 		}
@@ -90,8 +90,8 @@ func TestRemoveRun(t *testing.T) {
 					},
 				}
 				mockWorkspace := &deptfile.WorkspacerMock{
-					DoFunc: func(f func(projectDir string, gomod *deptfile.GoMod) error) error {
-						return f("", &deptfile.GoMod{
+					DoFunc: func(f func(projectDir string, gomod *deptfile.File) error) error {
+						return f("", &deptfile.File{
 							Require: c.requires,
 						})
 					},
