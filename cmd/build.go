@@ -10,6 +10,7 @@ import (
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/filegen"
 	"github.com/ktr0731/dept/gocmd"
+	"github.com/ktr0731/dept/logger"
 	"github.com/mitchellh/cli"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -46,6 +47,8 @@ func (c *buildCommand) Run(args []string) int {
 		ctx := context.Background()
 
 		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
+			outputDir = resolveOutputDir(projRoot, outputDir)
+
 			requires := make([]string, 0, len(df.Require))
 			tools := []struct {
 				path, outputName string
@@ -76,7 +79,8 @@ func (c *buildCommand) Run(args []string) int {
 					} else {
 						outputName = filepath.Base(t.path)
 					}
-					binPath := filepath.Join(projRoot, outputDir, outputName)
+					binPath := filepath.Join(outputDir, outputName)
+					logger.Printf("building %s to %s", t.path, binPath)
 					if err := c.gocmd.Build(ctx, "-o", binPath, t.path); err != nil {
 						return errors.Wrapf(err, "failed to buld %s (bin path = %s)", t.path, binPath)
 					}
@@ -96,7 +100,7 @@ func NewBuild(
 	workspace deptfile.Workspacer,
 ) cli.Command {
 	f := flag.NewFlagSet("build", flag.ExitOnError)
-	f.String("d", "_tools", "Output dir to store built Go tools")
+	f.String("d", "", "Output dir to store built Go tools")
 	return &buildCommand{
 		f:         f,
 		ui:        ui,

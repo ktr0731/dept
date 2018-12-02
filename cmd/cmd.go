@@ -5,10 +5,12 @@ import (
 	"flag"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/ktr0731/dept/deptfile"
+	"github.com/ktr0731/dept/logger"
 	"github.com/mitchellh/cli"
 	"github.com/pkg/errors"
 )
@@ -65,6 +67,22 @@ func FlagUsage(f *flag.FlagSet, repeatable bool) string {
 	return b.String()
 }
 
+// ExcludeFlagUsage is the same as FlagUsage, but excludes a slice passed as exclude.
+// Note that ExcludeFlagUsage must be called before Parse.
+func ExcludeFlagUsage(f *flag.FlagSet, repeatable bool, exclude []string) string {
+	var excludes = make(map[string]interface{}, len(exclude))
+	for _, f := range exclude {
+		excludes[f] = nil
+	}
+	newOne := flag.NewFlagSet(f.Name(), f.ErrorHandling())
+	f.VisitAll(func(f *flag.Flag) {
+		if _, found := excludes[f.Name]; !found {
+			newOne.Var(f.Value, f.Name, f.Usage)
+		}
+	})
+	return FlagUsage(newOne, repeatable)
+}
+
 // normalizePath normalizes a passed path.
 // It trims any schemes like 'https://'.
 // Also, it parse the module version from path.
@@ -108,5 +126,18 @@ func forToolsWithOutputName(r *deptfile.Require, f func(path, outputName string)
 		if ok := f(p, t.Name); !ok {
 			return
 		}
+	}
+}
+
+func resolveOutputDir(projRoot, flagVal string) string {
+	if flagVal != "" {
+		return flagVal
+	}
+	if b := os.Getenv("GOBIN"); b != "" {
+		logger.Printf("output dir = $GOBIN (%s)", b)
+		return b
+	} else {
+		logger.Println("output dir = _tools")
+		return filepath.Join(projRoot, "_tools")
 	}
 }

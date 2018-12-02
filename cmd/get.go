@@ -13,6 +13,7 @@ import (
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/filegen"
 	"github.com/ktr0731/dept/gocmd"
+	"github.com/ktr0731/dept/logger"
 	"github.com/mitchellh/cli"
 	"github.com/mitchellh/copystructure"
 	"github.com/pkg/errors"
@@ -91,13 +92,7 @@ func (c *getCommand) Run(args []string) int {
 		}
 
 		err = c.workspace.Do(func(projRoot string, df *deptfile.File) error {
-			if outputDir == "" {
-				if b := os.Getenv("GOBIN"); b != "" {
-					outputDir = b
-				} else {
-					outputDir = filepath.Join(projRoot, "_tools")
-				}
-			}
+			outputDir = resolveOutputDir(projRoot, outputDir)
 
 			importPaths := make([]string, 0, len(df.Require))
 			for _, path := range paths {
@@ -151,6 +146,7 @@ func (c *getCommand) Run(args []string) int {
 			for _, p := range paths {
 				getArgs = append(getArgs, p.modPath())
 			}
+			logger.Println("getting all dependencies")
 			if err := c.gocmd.Get(ctx, append(getArgs, "./...")...); err != nil {
 				return errors.Wrap(err, "failed to get Go tools dependencies")
 			}
@@ -170,6 +166,7 @@ func (c *getCommand) Run(args []string) int {
 
 					// If also -u is passed, update repo to the latest.
 					if update && path.ver == "" {
+						logger.Printf("updating %s to the latest version", path.repo)
 						if err := c.gocmd.Get(ctx, "-u", "-d", path.repo); err != nil {
 							return errors.Wrap(err, "failed to get Go tools dependencies")
 						}
@@ -181,6 +178,7 @@ func (c *getCommand) Run(args []string) int {
 					} else {
 						binPath = filepath.Join(outputDir, filepath.Base(path.repo))
 					}
+					logger.Printf("building %s to %s", path.repo, binPath)
 					if err := c.gocmd.Build(ctx, "-o", binPath, path.repo); err != nil {
 						return errors.Wrapf(err, "failed to buld %s (bin path = %s)", path.repo, binPath)
 					}
@@ -250,9 +248,6 @@ func toolNameConflicted(p1, p2 string) bool {
 // uri is the full path for tool r.
 // modRoot is the module root of r.
 func appendRequire(reqs []*deptfile.Require, r *deptfile.Require, path *path) []*deptfile.Require {
-	// defer pp.Println(reqs)
-	// TODO: version, rename?
-
 	toolPath := strings.TrimPrefix(path.repo, path.modRoot)
 	// a new module
 	if r == nil {

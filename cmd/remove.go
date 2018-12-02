@@ -8,6 +8,7 @@ import (
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/filegen"
 	"github.com/ktr0731/dept/gocmd"
+	"github.com/ktr0731/dept/logger"
 	"github.com/mitchellh/cli"
 	"github.com/pkg/errors"
 )
@@ -76,6 +77,7 @@ func (c *removeCommand) Run(args []string) int {
 			defer f.Close()
 			filegen.Generate(f, requires)
 
+			logger.Println("removing unnecessary tools and indirection dependencies")
 			if err := c.gocmd.ModTidy(ctx); err != nil {
 				return errors.Wrap(err, "failed to remove the tool from gotool.mod")
 			}

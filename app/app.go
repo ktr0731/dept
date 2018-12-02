@@ -1,23 +1,53 @@
 package app
 
 import (
+	"errors"
+	"flag"
+	"fmt"
+	"io"
 	"os"
+	"runtime"
+	"runtime/pprof"
+	"strings"
 
+	"github.com/hashicorp/go-version"
 	"github.com/ktr0731/dept/cmd"
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/gocmd"
+	"github.com/ktr0731/dept/logger"
 	"github.com/mitchellh/cli"
 )
 
 const (
-	name    = "dept"
-	version = "0.1.0"
+	appName    = "dept"
+	appVersion = "0.1.0"
+)
+
+var minVersion = version.Must(version.NewVersion("1.11.0"))
+
+var (
+	stdin  io.Reader = os.Stdin
+	stdout io.Writer = os.Stdout
+	stderr io.Writer = os.Stderr
 )
 
 // Run receives args, then run dept.
 func Run(args []string) (int, error) {
-	app := cli.NewCLI(name, version)
-	app.Args = args
+	ver := version.Must(version.NewVersion(strings.TrimPrefix(runtime.Version(), "go")))
+	if !isCompatibleGoVersion(ver) {
+		return 1, errors.New("dept needs Go 1.11 or later")
+	}
+
+	if isLimitedGoModSupport(ver) {
+		const key = "GO111MODULE"
+		oldVal := os.Getenv(key)
+		os.Setenv(key, "on")
+		defer func() {
+			os.Setenv(key, oldVal)
+		}()
+	}
+
+	app := cli.NewCLI(appName, appVersion)
 
 	app.Commands = map[string]cli.CommandFactory{
 		"init": func() (cli.Command, error) {
@@ -52,13 +82,81 @@ func Run(args []string) (int, error) {
 		},
 	}
 
+	f := flag.NewFlagSet("main", flag.ExitOnError)
+	verbose := f.Bool("v", false, "verbose output")
+
+	app.HelpFunc = func(c map[string]cli.CommandFactory) string {
+		// Replace basic help header by new one
+		// because it doesn't show optional flags.
+		header := fmt.Sprintf(
+			"Usage: %s [-v] [--version] [--help] <command> [<args>]",
+			app.Name)
+		s := cli.BasicHelpFunc(app.Name)(c) + "\n"
+		i := strings.Index(s, "\n")
+		s = strings.Replace(s, s[:i], header, 1)
+		return s
+	}
+
+	f.Usage = func() { fmt.Println(app.HelpFunc(app.Commands)) }
+	f.Parse(args)
+	if *verbose {
+		logger.SetOutput(os.Stderr)
+	}
+
+	app.Args = f.Args()
 	return app.Run()
 }
 
 func newUI() cli.Ui {
 	return &cli.BasicUi{
-		Reader:      os.Stdin,
-		Writer:      os.Stdout,
-		ErrorWriter: os.Stderr,
+		Reader:      stdin,
+		Writer:      stdout,
+		ErrorWriter: stderr,
+	}
+}
+
+// isCompatibleGoVersion checks whether the Go version has Go modules support.
+// version must be formatted as semver form.
+func isCompatibleGoVersion(v *version.Version) bool {
+	return v.Compare(minVersion) >= 0
+}
+
+// isLimitedGoModSupport checks whether the Go version is limited support for Go modules.
+// If Go modules incompatible version passed, isLimitedGoModSupport will panic.
+func isLimitedGoModSupport(v *version.Version) bool {
+	if !isCompatibleGoVersion(v) {
+		panic("Go modules incompatible version passed")
+	}
+	minor := v.Segments()[1]
+	return minor == 11
+}
+
+// startProfile starts profiling if cpuprof or memprof are not empty.
+// Code is based on https://golang.org/pkg/runtime/pprof/
+func startProfile(cpuprof, memprof string) func() {
+	if cpuprof != "" {
+		f, err := os.Create(cpuprof)
+		if err != nil {
+			logger.Fatal("could not create CPU profile: ", err)
+		}
+		if err := pprof.StartCPUProfile(f); err != nil {
+			logger.Fatal("could not start CPU profile: ", err)
+		}
+	}
+
+	if memprof != "" {
+		f, err := os.Create(memprof)
+		if err != nil {
+			logger.Fatal("could not create memory profile: ", err)
+		}
+		runtime.GC() // get up-to-date statistics
+		if err := pprof.WriteHeapProfile(f); err != nil {
+			logger.Fatal("could not write memory profile: ", err)
+		}
+		f.Close()
+	}
+
+	return func() {
+		pprof.StopCPUProfile()
 	}
 }
