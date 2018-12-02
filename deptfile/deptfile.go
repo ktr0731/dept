@@ -25,6 +25,7 @@ var (
 	ErrAlreadyExist = errors.New("already exist")
 )
 
+// File represents the root struct of deptfile.
 type File struct {
 	Require []*Require
 	f       *modfile.File

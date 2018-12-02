@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Command provides available Go commands.
 type Command interface {
 	Get(ctx context.Context, args ...string) error
 	Build(ctx context.Context, args ...string) error
@@ -19,6 +20,7 @@ type Command interface {
 	List(ctx context.Context, args ...string) (io.Reader, error)
 }
 
+// New returns a new instance of Command.
 func New() Command {
 	return &command{}
 }

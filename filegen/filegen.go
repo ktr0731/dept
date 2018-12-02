@@ -15,6 +15,9 @@ import (
 )
 `
 
+// Generate receives import paths that named paths and generates
+// Go source code which imports these paths.
+// Generated code is written to w.
 func Generate(w io.Writer, paths []string) {
 	var s string
 	for _, p := range paths {
