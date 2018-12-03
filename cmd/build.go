@@ -40,6 +40,9 @@ func (c *buildCommand) Run(args []string) int {
 	c.f.Parse(args)
 
 	outputDir := c.f.Lookup("d").Value.String()
+	if outputDir != "" {
+		outputDir, _ = filepath.Abs(outputDir)
+	}
 
 	args = c.f.Args()
 

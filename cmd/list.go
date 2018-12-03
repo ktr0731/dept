@@ -27,12 +27,34 @@ func (c *listCommand) Synopsis() string {
 }
 
 func (c *listCommand) Run(args []string) int {
+	passed := map[string]interface{}{}
+	for _, arg := range args {
+		passed[arg] = nil
+	}
+	listAll := len(passed) == 0
 	return run(c, func() error {
 		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
+				if !listAll {
+					// If module roots passed, filter by that modules.
+					if _, found := passed[r.Path]; found {
+						forTools(r, func(path string) bool {
+							requires = append(requires, fmt.Sprintf("%s %s", path, r.Version))
+							return true
+						})
+						continue
+					}
+
+					// If module roots not found, step into each tool.
+				}
+
 				forTools(r, func(path string) bool {
-					requires = append(requires, fmt.Sprintf("%s %s", path, r.Version))
+					if listAll {
+						requires = append(requires, fmt.Sprintf("%s %s", path, r.Version))
+					} else if _, found := passed[path]; found {
+						requires = append(requires, fmt.Sprintf("%s %s", path, r.Version))
+					}
 					return true
 				})
 			}

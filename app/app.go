@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"runtime"
-	"runtime/pprof"
 	"strings"
 
 	"github.com/hashicorp/go-version"
@@ -129,34 +128,4 @@ func isLimitedGoModSupport(v *version.Version) bool {
 	}
 	minor := v.Segments()[1]
 	return minor == 11
-}
-
-// startProfile starts profiling if cpuprof or memprof are not empty.
-// Code is based on https://golang.org/pkg/runtime/pprof/
-func startProfile(cpuprof, memprof string) func() {
-	if cpuprof != "" {
-		f, err := os.Create(cpuprof)
-		if err != nil {
-			logger.Fatal("could not create CPU profile: ", err)
-		}
-		if err := pprof.StartCPUProfile(f); err != nil {
-			logger.Fatal("could not start CPU profile: ", err)
-		}
-	}
-
-	if memprof != "" {
-		f, err := os.Create(memprof)
-		if err != nil {
-			logger.Fatal("could not create memory profile: ", err)
-		}
-		runtime.GC() // get up-to-date statistics
-		if err := pprof.WriteHeapProfile(f); err != nil {
-			logger.Fatal("could not write memory profile: ", err)
-		}
-		f.Close()
-	}
-
-	return func() {
-		pprof.StopCPUProfile()
-	}
 }

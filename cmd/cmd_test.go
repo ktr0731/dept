@@ -2,8 +2,12 @@ package cmd_test
 
 import (
 	"bytes"
+	"flag"
 	"os"
+	"strings"
+	"testing"
 
+	"github.com/ktr0731/dept/cmd"
 	"github.com/mitchellh/cli"
 )
 
@@ -26,5 +30,17 @@ func newMockUI() *mockUI {
 			Writer:      new(bytes.Buffer),
 			ErrorWriter: new(bytes.Buffer),
 		},
+	}
+}
+
+func TestExcludeFlagUsage(t *testing.T) {
+	f := flag.NewFlagSet("test", flag.ExitOnError)
+	f.Bool("foo", false, "")
+	f.Bool("bar", false, "")
+	f.Bool("baz", false, "")
+	excludes := []string{"bar"}
+	actual := cmd.ExcludeFlagUsage(f, false, excludes)
+	if strings.Contains(actual, "bar") {
+		t.Errorf("ExcludeFlagUsage must hide flag 'bar', but found:\n%s", actual)
 	}
 }

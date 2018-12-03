@@ -49,7 +49,7 @@ var getHelpTmpl = `Usage: dept get <package>
 // Help shows the help message.
 // Before call Help, getCommand.f must be initialized.
 func (c *getCommand) Help() string {
-	return fmt.Sprintf(getHelpTmpl, FlagUsage(c.f, false), FlagUsage(c.rf(), true))
+	return fmt.Sprintf(getHelpTmpl, ExcludeFlagUsage(c.f, false, []string{"o"}), FlagUsage(c.rf(), true))
 }
 
 func (c *getCommand) Synopsis() string {
@@ -58,26 +58,27 @@ func (c *getCommand) Synopsis() string {
 
 func (c *getCommand) Run(args []string) int {
 	// First, parse normal flags only.
-	// If repeatable flags or args found, break the loop.
-	var normalFlags []string
-	for i := 0; i < len(args); i++ {
-		if args[i] == "-o" || !strings.HasPrefix(args[i], "-") {
-			normalFlags = args[:i]
-			break
-		}
-	}
-	if err := c.f.Parse(normalFlags); err != nil {
+	if err := c.f.Parse(args); err != nil {
 		c.UI().Error(err.Error())
 		return 1
 	}
 
-	var outputDir string
-	var update bool
-	outputDir = c.f.Lookup("d").Value.String()
-	update = c.f.Lookup("u").Value.String() == "true"
+	outputDir := c.f.Lookup("d").Value.String()
+	if outputDir != "" {
+		outputDir, _ = filepath.Abs(outputDir)
+	}
+	update := c.f.Lookup("u").Value.String() == "true"
+	dummyO := c.f.Lookup("o")
+	oCalled := dummyO.Value.String() == "true"
 
-	// Repeatable flags + all args.
-	args = args[len(normalFlags):]
+	if !oCalled {
+		// If -o is not passed, all args are parsed.
+		args = c.f.Args()
+	} else {
+		// There are repeatable flags.
+		// Repeatable flags + all args.
+		args = append([]string{"-o"}, c.f.Args()...)
+	}
 
 	return run(c, func() error {
 		if len(args) == 0 {
@@ -86,12 +87,12 @@ func (c *getCommand) Run(args []string) int {
 
 		ctx := context.Background()
 
-		paths, err := c.parseArgs(ctx, args)
-		if err != nil {
-			return err
-		}
+		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
+			paths, err := c.parseArgs(ctx, args)
+			if err != nil {
+				return err
+			}
 
-		err = c.workspace.Do(func(projRoot string, df *deptfile.File) error {
 			outputDir = resolveOutputDir(projRoot, outputDir)
 
 			importPaths := make([]string, 0, len(df.Require))
@@ -147,7 +148,7 @@ func (c *getCommand) Run(args []string) int {
 				getArgs = append(getArgs, p.modPath())
 			}
 			logger.Println("getting all dependencies")
-			if err := c.gocmd.Get(ctx, append(getArgs, "./...")...); err != nil {
+			if err := c.gocmd.Get(ctx, append(getArgs, ".")...); err != nil {
 				return errors.Wrap(err, "failed to get Go tools dependencies")
 			}
 
@@ -198,6 +199,8 @@ func (c *getCommand) Run(args []string) int {
 	})
 }
 
+// parseArgs parses repeatable flags and args.
+// parseArgs must be call inside of a workspace.
 func (c *getCommand) parseArgs(ctx context.Context, args []string) ([]*path, error) {
 	paths, err := c.rf.Parse(args)
 	if err != nil {
@@ -218,6 +221,7 @@ func (c *getCommand) parseArgs(ctx context.Context, args []string) ([]*path, err
 }
 
 func getModuleRoot(ctx context.Context, gocmd gocmd.Command, path string) (string, error) {
+	logger.Printf("get the module root of %s", path)
 	res, err := gocmd.List(ctx, "-f", `{{ .Module.Path }}`, path)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to get the module root of %s", path)
@@ -380,6 +384,9 @@ func NewGet(
 	f.SetOutput(ioutil.Discard)
 	f.String("d", "", "Output dir to store built Go tools")
 	f.Bool("u", false, "Update the specified tool to the latest version")
+
+	// -o is a dummy flag. It is used to stop flag parsing.
+	f.Bool("o", false, "dummy flag")
 	rf := defaultRepeatableFlagSet
 	return &getCommand{
 		f:         f,

@@ -137,7 +137,8 @@ func resolveOutputDir(projRoot, flagVal string) string {
 		logger.Printf("output dir = $GOBIN (%s)", b)
 		return b
 	} else {
-		logger.Println("output dir = _tools")
-		return filepath.Join(projRoot, "_tools")
+		p := filepath.Join(projRoot, "_tools")
+		logger.Printf("output dir = %s", p)
+		return p
 	}
 }

@@ -49,7 +49,10 @@ func (w *Workspace) Do(f func(projectDir string, gomod *File) error) error {
 	} else {
 		cwd, err = projectRoot()
 		if err != nil {
-			return err
+			cwd, err = os.Getwd()
+			if err != nil {
+				return errors.Wrap(err, "failed to get the current working dir")
+			}
 		}
 	}
 

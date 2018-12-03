@@ -34,4 +34,55 @@ func TestListRun(t *testing.T) {
 			t.Errorf("Run must show 4 tools, but got %d", len(sp))
 		}
 	})
+
+	t.Run("Run shows only specified tools", func(t *testing.T) {
+		mockWorkspace := &deptfile.WorkspacerMock{
+			DoFunc: func(f func(projectDir string, gomod *deptfile.File) error) error {
+				return f("", &deptfile.File{
+					Require: []*deptfile.Require{
+						{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
+						{Path: "github.com/ktr0731/itunes-cli", ToolPaths: []*deptfile.Tool{{Path: "/itunes"}}},
+						{Path: "honnef.co/go/tools", ToolPaths: []*deptfile.Tool{{Path: "/cmd/unused"}, {Path: "/cmd/statickcheck"}}},
+					},
+				})
+			},
+		}
+
+		cases := map[string]struct {
+			args     []string
+			expected []string
+		}{
+			"only one tool": {
+				args:     []string{"github.com/ktr0731/evans"},
+				expected: []string{"github.com/ktr0731/evans"},
+			},
+			"only one tool which is in a sub package": {
+				args:     []string{"honnef.co/go/tools/cmd/unused"},
+				expected: []string{"honnef.co/go/tools/cmd/unused"},
+			},
+			"only one module": {
+				args: []string{"honnef.co/go/tools"},
+				expected: []string{
+					"honnef.co/go/tools/cmd/unused",
+					"honnef.co/go/tools/cmd/statickcheck",
+				},
+			},
+		}
+		for name, c := range cases {
+			t.Run(name, func(t *testing.T) {
+				mockUI := newMockUI()
+				cmd := cmd.NewList(mockUI, mockWorkspace)
+
+				code := cmd.Run(c.args)
+				if code != 0 {
+					t.Fatalf("Run must return 0, but got %d", code)
+				}
+
+				actual := strings.Split(strings.TrimSpace(mockUI.Writer().String()), "\n")
+				if len(c.expected) != len(actual) {
+					t.Errorf("expected: %s, but got %s", c.expected, actual)
+				}
+			})
+		}
+	})
 }
