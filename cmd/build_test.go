@@ -27,6 +27,9 @@ func TestBuildRun(t *testing.T) {
 		if code != 1 {
 			t.Errorf("Run must return code 1, but got %d", code)
 		}
+		if n := len(mockWorkspace.DoCalls()); n != 1 {
+			t.Errorf("Do must be called only once, but %d", n)
+		}
 		if eout := mockUI.ErrorWriter().String(); !strings.Contains(eout, "dept init") {
 			t.Errorf("Run must show 'dept init' related error message in case of gotool.mod is not found, but '%s'", eout)
 		}

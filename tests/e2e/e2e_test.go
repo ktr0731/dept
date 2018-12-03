@@ -43,6 +43,7 @@ func setupEnv(t *testing.T) func() {
 	os.Chdir(dir)
 	return func() {
 		os.Chdir(cwd)
+		os.RemoveAll(dir)
 	}
 }
 
@@ -162,23 +163,23 @@ func TestGet(t *testing.T) {
 			args: []string{
 				"get",
 				"-d", "_tools",
-				"-o", "uu", "honnef.co/go/tools/cmd/unused",
-				"-o", "sc", "honnef.co/go/tools/cmd/staticcheck",
+				"-o", "it", "github.com/ktr0731/itunes-cli/itunes",
+				"-o", "gc", "github.com/fullstorydev/grpcurl/cmd/grpcurl",
 			},
 			assert: func(t *testing.T, out, eout *bytes.Buffer) {
-				if strings.Contains(out.String(), "honnef.co/go/tools/cmd/unused") {
-					t.Errorf("list must not be list up 'honnef.co/go/tools/cmd/unused':\n%s", out.String())
+				if strings.Contains(out.String(), "github.com/ktr0731/itunes-cli/itunes") {
+					t.Errorf("list must not be list up 'github.com/ktr0731/itunes-cli/itunes':\n%s", out.String())
 				}
-				if strings.Contains(out.String(), "honnef.co/go/tools/cmd/staticcheck") {
-					t.Errorf("list must not be list up 'honnef.co/go/tools/cmd/staticcheck':\n%s", out.String())
+				if strings.Contains(out.String(), "github.com/fullstorydev/grpcurl/cmd/grpcurl") {
+					t.Errorf("list must not be list up 'github.com/fullstorydev/grpcurl/cmd/grpcurl':\n%s", out.String())
 				}
-				_, err := os.Stat(filepath.Join("_tools", "uu"))
+				_, err := os.Stat(filepath.Join("_tools", "it"))
 				if os.IsNotExist(err) {
-					t.Error("unused must be installed as 'uu', but not found")
+					t.Error("itunes must be installed as 'it', but not found")
 				}
-				_, err = os.Stat(filepath.Join("_tools", "sc"))
+				_, err = os.Stat(filepath.Join("_tools", "gc"))
 				if os.IsNotExist(err) {
-					t.Error("staticcheck must be installed as 'sc', but not found")
+					t.Error("grpcurl must be installed as 'gc', but not found")
 				}
 			},
 		},
@@ -189,13 +190,13 @@ func TestGet(t *testing.T) {
 				if _, err := os.Stat("bin"); os.IsNotExist(err) {
 					t.Error("build must write out binaries to bin, but dir not found")
 				}
-				_, err := os.Stat(filepath.Join("bin", "uu"))
+				_, err := os.Stat(filepath.Join("_tools", "it"))
 				if os.IsNotExist(err) {
-					t.Error("unused must be installed as 'uu', but not found")
+					t.Error("itunes must be installed as 'it', but not found")
 				}
-				_, err = os.Stat(filepath.Join("bin", "sc"))
+				_, err = os.Stat(filepath.Join("_tools", "gc"))
 				if os.IsNotExist(err) {
-					t.Error("staticcheck must be installed as 'sc', but not found")
+					t.Error("grpcurl must be installed as 'gc', but not found")
 				}
 				_, err = os.Stat(filepath.Join("bin", "salias"))
 				if os.IsNotExist(err) {

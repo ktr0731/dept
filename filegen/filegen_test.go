@@ -25,3 +25,16 @@ import (
 		t.Errorf("expected:\n%s\n\nactual:\n%s", expected, actual)
 	}
 }
+
+func TestGeneratorInvalidSource(t *testing.T) {
+	df := []string{
+		`"github.com/foo/bar`,
+	}
+	defer func() {
+		if err := recover(); err == nil {
+			t.Errorf("Generate must panic")
+		}
+	}()
+	var buf bytes.Buffer
+	filegen.Generate(&buf, df)
+}

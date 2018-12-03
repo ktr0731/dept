@@ -2,6 +2,9 @@
 
 [Go modules](//github.com/golang/go/wiki/Modules) based dependency management for Go tools.
 
+[![CircleCI](https://circleci.com/gh/ktr0731/dept.svg?style=svg)](https://circleci.com/gh/ktr0731/dept)  
+[![codecov](https://codecov.io/gh/ktr0731/dept/branch/master/graph/badge.svg?token=GLDI0EuIJs)](https://codecov.io/gh/ktr0731/dept)  
+
 ## Description
 `dept` is a dependency management tool based on [Go modules](//github.com/golang/go/wiki/Modules).  
 Instead of `go.mod`, `dept` helps you to manage Go tools.  

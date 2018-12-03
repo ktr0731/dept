@@ -1,0 +1,38 @@
+version: 2
+jobs:
+  build:
+    working_directory: /go/dept
+    docker:
+      - image: circleci/golang:1.11.2
+        environment:
+          GO111MODULE: on
+          GOPATH: /go
+
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+            - mod-{{ checksum "go.sum" }}
+
+      - run:
+          name: setup
+          command: |
+            go mod download
+
+      - save_cache:
+          key: mod-{{ checksum "go.sum" }}
+          paths:
+            - /go/pkg/mod
+
+      - run:
+          name: build
+          command: go build
+
+      - run:
+          name: test
+          command: go test -v -race -tags e2e -coverpkg ./... -covermode=atomic -coverprofile=coverage.txt $(go list -tags e2e ./... | tail -n +2 | egrep -v '(logger)')
+
+      - run:
+          name: codecov
+          command: bash <(curl -s https://codecov.io/bash)
