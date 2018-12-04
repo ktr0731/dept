@@ -8,7 +8,6 @@ require (
 	github.com/mitchellh/cli v1.0.0
 	github.com/mitchellh/copystructure v1.0.0
 	github.com/pkg/errors v0.8.0
-	github.com/pkg/profile v1.2.1
 	golang.org/x/sync v0.0.0-20181108010431-42b317875d0f
 	golang.org/x/sys v0.0.0-20181116161606-93218def8b18 // indirect
 )

@@ -8,6 +8,15 @@ import (
 	"github.com/ktr0731/dept/gocmd"
 )
 
+func TestTimeoutErr(t *testing.T) {
+	err := &gocmd.TimeoutErr{Command: "foo bar"}
+	expected := "command 'foo bar' timed out"
+	actual := err.Error()
+	if expected != actual {
+		t.Errorf("expected %s, but got %s", expected, actual)
+	}
+}
+
 func TestCommand(t *testing.T) {
 	cases := map[string]func(context.Context, gocmd.Command) error{
 		"Get":     func(ctx context.Context, cmd gocmd.Command) error { return cmd.Get(ctx, "github.com/ktr0731/dept") },
@@ -53,8 +62,8 @@ func TestCommand(t *testing.T) {
 			if err == nil {
 				t.Fatal("must return errors, but nil")
 			}
-			if _, ok := err.(*gocmd.TimeOutErr); !ok {
-				t.Errorf("must return *TimeOutErr, but actual %T", err)
+			if _, ok := err.(*gocmd.TimeoutErr); !ok {
+				t.Errorf("must return *TimeoutErr, but actual %T", err)
 			}
 		})
 	}

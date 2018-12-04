@@ -14,18 +14,18 @@ import (
 	"github.com/pkg/errors"
 )
 
-type TimeOutErr struct {
+type TimeoutErr struct {
 	Command string
 }
 
-func (e *TimeOutErr) Error() string {
+func (e *TimeoutErr) Error() string {
 	return fmt.Sprintf("command '%s' timed out", e.Command)
 }
 
 // Command provides available Go commands.
 // Each comamnd may return these errors:
 //
-//   - *TimeOutErr: comamnd timed out
+//   - *TimeoutErr: comamnd timed out
 //   - context.Canceled: context is canceled
 //   - others: command execution error
 //
@@ -93,7 +93,7 @@ func runCommand(ctx context.Context, cmd *exec.Cmd) error {
 	case context.Canceled:
 		return context.Canceled
 	case context.DeadlineExceeded:
-		return &TimeOutErr{Command: cmd.Path + " " + strings.Join(cmd.Args, " ")}
+		return &TimeoutErr{Command: cmd.Path + " " + strings.Join(cmd.Args, " ")}
 	default:
 	}
 	if err != nil {

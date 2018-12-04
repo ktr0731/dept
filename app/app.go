@@ -90,7 +90,7 @@ func Run(args []string) (int, error) {
 		header := fmt.Sprintf(
 			"Usage: %s [-v] [--version] [--help] <command> [<args>]",
 			app.Name)
-		s := cli.BasicHelpFunc(app.Name)(c) + "\n"
+		s := cli.BasicHelpFunc(app.Name)(c)
 		i := strings.Index(s, "\n")
 		s = strings.Replace(s, s[:i], header, 1)
 		return s

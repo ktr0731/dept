@@ -31,7 +31,7 @@ jobs:
 
       - run:
           name: test
-          command: go test -v -race -tags e2e -coverpkg ./... -covermode=atomic -coverprofile=coverage.txt $(go list -tags e2e ./... | tail -n +2 | egrep -v '(logger)')
+          command: go test -v -race -tags e2e -coverpkg ./... -covermode=atomic -coverprofile=coverage.txt $(go list -tags e2e ./... | tail -n +2 | egrep -v '(logger|deptfileutil)')
 
       - run:
           name: codecov
