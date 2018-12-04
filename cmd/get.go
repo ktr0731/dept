@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -85,7 +86,19 @@ func (c *getCommand) Run(args []string) int {
 			return errShowHelp
 		}
 
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		sig := make(chan os.Signal, 1)
+		defer close(sig)
+		signal.Notify(sig, os.Interrupt)
+
+		go func() {
+			<-sig
+			logger.Println("interrupted")
+			cancel()
+			logger.Println("context canceled")
+		}()
 
 		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
 			paths, err := c.parseArgs(ctx, args)

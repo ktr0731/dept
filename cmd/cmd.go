@@ -30,11 +30,11 @@ func run(c command, f func() error) int {
 		return 0
 	}
 
-	switch err {
+	switch errors.Cause(err) {
 	case errShowHelp:
 		c.UI().Output(c.Help())
 	case context.Canceled:
-		c.UI().Error("command canceled")
+		logger.Println("command successfully finished")
 	case deptfile.ErrNotFound:
 		c.UI().Error("deptfile missing. please do 'dept init'")
 	default:
