@@ -26,8 +26,8 @@ func (c *initCommand) Synopsis() string {
 }
 
 func (c *initCommand) Run(args []string) int {
-	return run(c, func() error {
-		if err := deptfile.Create(context.Background()); err != nil {
+	return run(c, func(ctx context.Context) error {
+		if err := deptfile.Create(ctx); err != nil {
 			return errors.Wrap(err, "failed to create a new deptfile")
 		}
 		return nil

@@ -46,9 +46,7 @@ func (c *buildCommand) Run(args []string) int {
 
 	args = c.f.Args()
 
-	return run(c, func() error {
-		ctx := context.Background()
-
+	return run(c, func(ctx context.Context) error {
 		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
 			outputDir = resolveOutputDir(projRoot, outputDir)
 

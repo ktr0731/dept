@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 
@@ -24,8 +25,22 @@ type command interface {
 	UI() cli.Ui
 }
 
-func run(c command, f func() error) int {
-	err := f()
+func run(c command, f func(ctx context.Context) error) int {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sig := make(chan os.Signal, 1)
+	defer close(sig)
+	signal.Notify(sig, os.Interrupt)
+
+	go func() {
+		<-sig
+		logger.Println("interrupted")
+		cancel()
+		logger.Println("context canceled")
+	}()
+
+	err := f(ctx)
 	if err == nil {
 		return 0
 	}

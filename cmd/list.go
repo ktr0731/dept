@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -32,7 +33,7 @@ func (c *listCommand) Run(args []string) int {
 		passed[arg] = nil
 	}
 	listAll := len(passed) == 0
-	return run(c, func() error {
+	return run(c, func(context.Context) error {
 		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {

@@ -39,12 +39,10 @@ func (c *removeCommand) Synopsis() string {
 }
 
 func (c *removeCommand) Run(args []string) int {
-	return run(c, func() error {
+	return run(c, func(ctx context.Context) error {
 		if len(args) != 1 {
 			return errShowHelp
 		}
-
-		ctx := context.Background()
 
 		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
 			path := args[0]
