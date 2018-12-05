@@ -20,7 +20,7 @@ func (c *listCommand) UI() cli.Ui {
 }
 
 func (c *listCommand) Help() string {
-	return fmt.Sprintf("Usage: dept list")
+	return fmt.Sprintf("Usage: dept list <path [path ...]>")
 }
 
 func (c *listCommand) Synopsis() string {

@@ -85,7 +85,7 @@ func (c *getCommand) UI() cli.Ui {
 	return c.ui
 }
 
-var getHelpTmpl = `Usage: dept get <package>
+var getHelpTmpl = `Usage: dept get <path [path ...]>
 
 get installs the passed Go tools to the specified directory.
 If $GOBIN enabled, it will be used preferentially.

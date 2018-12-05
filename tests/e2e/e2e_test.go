@@ -215,6 +215,25 @@ func TestGet(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "remove all tools",
+			args: []string{"remove", "github.com/ktr0731/itunes-cli/itunes", "github.com/fullstorydev/grpcurl/cmd/grpcurl", "github.com/ktr0731/salias"},
+		},
+		{
+			name: "all tools are uninstalled",
+			args: []string{"list"},
+			assert: func(t *testing.T, out, eout *bytes.Buffer) {
+				if strings.Contains(out.String(), "github.com/ktr0731/itunes-cli/itunes") {
+					t.Errorf("list must not be list up 'github.com/ktr0731/itunes-cli/itunes':\n%s", out.String())
+				}
+				if strings.Contains(out.String(), "github.com/fullstorydev/grpcurl/cmd/grpcurl") {
+					t.Errorf("list must not be list up 'github.com/fullstorydev/grpcurl/cmd/grpcurl':\n%s", out.String())
+				}
+				if strings.Contains(out.String(), "github.com/ktr0731/salias") {
+					t.Errorf("list must not be list up 'github.com/ktr0731/salias':\n%s", out.String())
+				}
+			},
+		},
 	}
 
 	for _, c := range cases {

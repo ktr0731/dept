@@ -31,7 +31,7 @@ jobs:
 
       - run:
           name: build all Go tools
-          command: ./dept build
+          command: ./dept -v build
 
       - run:
           name: test

@@ -83,6 +83,7 @@ func Run(args []string) (int, error) {
 
 	f := flag.NewFlagSet("main", flag.ExitOnError)
 	verbose := f.Bool("v", false, "verbose output")
+	version := f.Bool("version", false, "show version")
 
 	app.HelpWriter = stdout
 	app.HelpFunc = func(c map[string]cli.CommandFactory) string {
@@ -101,6 +102,10 @@ func Run(args []string) (int, error) {
 	f.Parse(args)
 	if *verbose {
 		logger.SetOutput(os.Stderr)
+	}
+	if *version {
+		fmt.Fprintf(app.HelpWriter, "%s v%s\n", appName, appVersion)
+		return 0, nil
 	}
 
 	app.Args = f.Args()

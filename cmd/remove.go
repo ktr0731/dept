@@ -9,6 +9,7 @@ import (
 	"github.com/ktr0731/dept/filegen"
 	"github.com/ktr0731/dept/gocmd"
 	"github.com/ktr0731/dept/logger"
+	multierror "github.com/ktr0731/go-multierror"
 	"github.com/mitchellh/cli"
 	"github.com/pkg/errors"
 )
@@ -31,7 +32,7 @@ func (c *removeCommand) UI() cli.Ui {
 }
 
 func (c *removeCommand) Help() string {
-	return "Usage: dept remove <tool path>"
+	return "Usage: dept remove <path [path ...]>"
 }
 
 func (c *removeCommand) Synopsis() string {
@@ -40,31 +41,42 @@ func (c *removeCommand) Synopsis() string {
 
 func (c *removeCommand) Run(args []string) int {
 	return run(c, func(ctx context.Context) error {
-		if len(args) != 1 {
+		if len(args) < 1 {
 			return errShowHelp
 		}
 
 		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
-			path := args[0]
-			repo, _, err := normalizePath(path)
-			if err != nil {
-				return err
+			repoMap := map[string]bool{}
+			for _, path := range args {
+				repo, _, err := normalizePath(path)
+				if err != nil {
+					return err
+				}
+				if _, found := repoMap[repo]; found {
+					continue
+				}
+				repoMap[repo] = false
 			}
 
-			var all, cnt int
 			requires := make([]string, 0, len(df.Require))
 			for _, r := range df.Require {
 				forTools(r, func(path string) bool {
-					all++
-					if repo != path {
+					if _, found := repoMap[path]; found {
+						repoMap[path] = true
+					} else {
 						requires = append(requires, path)
-						cnt++
 					}
 					return true
 				})
 			}
-			if all == cnt {
-				return errors.Errorf("%s not found in gotool.mod", repo)
+			var err error
+			for repo, found := range repoMap {
+				if !found {
+					err = multierror.Append(err, errors.Errorf("%s not found in gotool.mod", repo))
+				}
+			}
+			if err != nil {
+				return err
 			}
 
 			f, err := os.Create("tools.go")
