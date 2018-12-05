@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io/ioutil"
@@ -145,6 +146,10 @@ func TestGet(t *testing.T) {
 			args: []string{"remove", "github.com/wa2/kazusa"},
 			code: 1,
 		},
+		// {
+		// 	name: "upgrade all tools",
+		// 	args: []string{"get", "-u"},
+		// },
 		{
 			name: "remove gox",
 			args: []string{"remove", "github.com/mitchellh/gox"},
@@ -214,9 +219,49 @@ func TestGet(t *testing.T) {
 	}
 }
 
+func TestGetExamples(t *testing.T) {
+	cleanup := setupEnv(t)
+	defer cleanup()
+
+	out, _, cleanupOutput := setupOutput()
+	defer cleanupOutput()
+
+	code, err := app.Run([]string{"get", "-h"})
+	if code != 0 {
+		t.Fatalf("expected code = 0, but got %d", code)
+	}
+	if err != nil {
+		t.Fatalf("failed to get help message: %s", err)
+	}
+	code, err = app.Run([]string{"init"})
+	if code != 0 {
+		t.Fatalf("expected code = 0, but got %d", code)
+	}
+	if err != nil {
+		t.Fatalf("failed to init deptfile: %s", err)
+	}
+	s := bufio.NewScanner(out)
+	for s.Scan() {
+		str := strings.TrimSpace(s.Text())
+		sub := "$ dept "
+		i := strings.Index(str, sub)
+		if i == -1 {
+			continue
+		}
+		str = str[i+len(sub):]
+		cmd := strings.Split(str, " ")
+		do(t, testcase{
+			name: str,
+			args: cmd,
+		})
+	}
+}
+
 func do(t *testing.T, c testcase) {
 	var code int
 	var err error
+	out, eout, cleanup := setupOutput()
+	defer cleanup()
 	defer func() func() {
 		fmt.Printf("   --- RUN : %s", c.name)
 		return func() {
@@ -228,12 +273,13 @@ func do(t *testing.T, c testcase) {
 				if err != nil {
 					fmt.Println(err.Error())
 				}
+				if eout.String() != "" {
+					fmt.Println(eout.String())
+				}
 				t.Fail()
 			}
 		}
 	}()()
-	out, eout, cleanup := setupOutput()
-	defer cleanup()
 
 	code, err = app.Run(c.args)
 	if err != nil {

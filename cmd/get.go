@@ -92,7 +92,7 @@ var getHelpTmpl = `Usage: dept get <package>
 Examples:
 
     $ dept get github.com/mitchellh/gox
-    $ dept get -o ci github.com/golangci/golangci-lint honnef.co/go/tools/cmd/unused
+    $ dept get -o ci github.com/golangci/golangci-lint/cmd/golangci-lint
 `
 
 // Help shows the help message.

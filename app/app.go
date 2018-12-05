@@ -84,7 +84,7 @@ func Run(args []string) (int, error) {
 	f := flag.NewFlagSet("main", flag.ExitOnError)
 	verbose := f.Bool("v", false, "verbose output")
 
-	app.HelpWriter = os.Stdout
+	app.HelpWriter = stdout
 	app.HelpFunc = func(c map[string]cli.CommandFactory) string {
 		// Replace basic help header by new one
 		// because it doesn't show optional flags.
