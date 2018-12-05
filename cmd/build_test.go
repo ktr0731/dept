@@ -65,6 +65,7 @@ func TestBuildRun(t *testing.T) {
 					BuildFunc: func(ctx context.Context, pkgs ...string) error {
 						return nil
 					},
+					ModDownloadFunc: func(ctx context.Context) error { return nil },
 				}
 				mockWorkspace := &deptfile.WorkspacerMock{
 					DoFunc: func(f func(projectDir string, df *deptfile.File) error) error {

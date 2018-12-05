@@ -4,11 +4,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/ktr0731/dept/deptfile"
-	"github.com/ktr0731/dept/filegen"
 	"github.com/ktr0731/dept/gocmd"
 	"github.com/ktr0731/dept/logger"
 	"github.com/mitchellh/cli"
@@ -75,13 +73,10 @@ func (c *buildCommand) Run(args []string) int {
 				})
 			}
 
-			f, err := os.Create("tools.go")
-			if err != nil {
-				return errors.Wrap(err, "failed to create a temp file which contains required Go tools in the import statement")
+			logger.Println("downloading modules")
+			if err := c.gocmd.ModDownload(ctx); err != nil {
+				return errors.Wrap(err, "failed to download module dependencies")
 			}
-			defer os.Remove("tools.go")
-			defer f.Close()
-			filegen.Generate(f, requires)
 
 			eg, ctx := errgroup.WithContext(ctx)
 			for _, t := range tools {

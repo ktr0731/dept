@@ -10,10 +10,11 @@ import (
 )
 
 var (
-	lockCommandMockBuild   sync.RWMutex
-	lockCommandMockGet     sync.RWMutex
-	lockCommandMockList    sync.RWMutex
-	lockCommandMockModTidy sync.RWMutex
+	lockCommandMockBuild       sync.RWMutex
+	lockCommandMockGet         sync.RWMutex
+	lockCommandMockList        sync.RWMutex
+	lockCommandMockModDownload sync.RWMutex
+	lockCommandMockModTidy     sync.RWMutex
 )
 
 // CommandMock is a mock implementation of Command.
@@ -30,6 +31,9 @@ var (
 //             },
 //             ListFunc: func(ctx context.Context, args ...string) (io.Reader, error) {
 // 	               panic("mock out the List method")
+//             },
+//             ModDownloadFunc: func(ctx context.Context) error {
+// 	               panic("mock out the ModDownload method")
 //             },
 //             ModTidyFunc: func(ctx context.Context) error {
 // 	               panic("mock out the ModTidy method")
@@ -49,6 +53,9 @@ type CommandMock struct {
 
 	// ListFunc mocks the List method.
 	ListFunc func(ctx context.Context, args ...string) (io.Reader, error)
+
+	// ModDownloadFunc mocks the ModDownload method.
+	ModDownloadFunc func(ctx context.Context) error
 
 	// ModTidyFunc mocks the ModTidy method.
 	ModTidyFunc func(ctx context.Context) error
@@ -75,6 +82,11 @@ type CommandMock struct {
 			Ctx context.Context
 			// Args is the args argument value.
 			Args []string
+		}
+		// ModDownload holds details about calls to the ModDownload method.
+		ModDownload []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
 		}
 		// ModTidy holds details about calls to the ModTidy method.
 		ModTidy []struct {
@@ -186,6 +198,37 @@ func (mock *CommandMock) ListCalls() []struct {
 	lockCommandMockList.RLock()
 	calls = mock.calls.List
 	lockCommandMockList.RUnlock()
+	return calls
+}
+
+// ModDownload calls ModDownloadFunc.
+func (mock *CommandMock) ModDownload(ctx context.Context) error {
+	if mock.ModDownloadFunc == nil {
+		panic("CommandMock.ModDownloadFunc: method is nil but Command.ModDownload was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+	}{
+		Ctx: ctx,
+	}
+	lockCommandMockModDownload.Lock()
+	mock.calls.ModDownload = append(mock.calls.ModDownload, callInfo)
+	lockCommandMockModDownload.Unlock()
+	return mock.ModDownloadFunc(ctx)
+}
+
+// ModDownloadCalls gets all the calls that were made to ModDownload.
+// Check the length with:
+//     len(mockedCommand.ModDownloadCalls())
+func (mock *CommandMock) ModDownloadCalls() []struct {
+	Ctx context.Context
+} {
+	var calls []struct {
+		Ctx context.Context
+	}
+	lockCommandMockModDownload.RLock()
+	calls = mock.calls.ModDownload
+	lockCommandMockModDownload.RUnlock()
 	return calls
 }
 

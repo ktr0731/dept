@@ -36,6 +36,8 @@ type Command interface {
 	Build(ctx context.Context, args ...string) error
 	// ModTidy executes 'go mod tidy'.
 	ModTidy(ctx context.Context) error
+	// ModDownload executes 'go mod download'
+	ModDownload(ctx context.Context) error
 	// List executes 'go list' with args.
 	// The result is represents as an io.Reader.
 	List(ctx context.Context, args ...string) (io.Reader, error)
@@ -58,6 +60,10 @@ func (c *command) Build(ctx context.Context, args ...string) error {
 
 func (c *command) ModTidy(ctx context.Context) error {
 	return run(ctx, 3*time.Minute, "mod", []string{"tidy"})
+}
+
+func (c *command) ModDownload(ctx context.Context) error {
+	return run(ctx, 3*time.Minute, "mod", []string{"download"})
 }
 
 func (c *command) List(ctx context.Context, args ...string) (io.Reader, error) {

@@ -19,9 +19,10 @@ func TestTimeoutErr(t *testing.T) {
 
 func TestCommand(t *testing.T) {
 	cases := map[string]func(context.Context, gocmd.Command) error{
-		"Get":     func(ctx context.Context, cmd gocmd.Command) error { return cmd.Get(ctx, "github.com/ktr0731/dept") },
-		"Build":   func(ctx context.Context, cmd gocmd.Command) error { return cmd.Build(ctx) },
-		"ModTidy": func(ctx context.Context, cmd gocmd.Command) error { return cmd.ModTidy(ctx) },
+		"Get":         func(ctx context.Context, cmd gocmd.Command) error { return cmd.Get(ctx, "github.com/ktr0731/dept") },
+		"Build":       func(ctx context.Context, cmd gocmd.Command) error { return cmd.Build(ctx) },
+		"ModTidy":     func(ctx context.Context, cmd gocmd.Command) error { return cmd.ModTidy(ctx) },
+		"ModDownload": func(ctx context.Context, cmd gocmd.Command) error { return cmd.ModDownload(ctx) },
 		"List": func(ctx context.Context, cmd gocmd.Command) error {
 			_, err := cmd.List(ctx, "github.com/ktr0731/dept")
 			return err
