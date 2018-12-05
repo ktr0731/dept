@@ -13,7 +13,12 @@ import (
 	"testing"
 
 	"github.com/ktr0731/dept/app"
+	"go.uber.org/goleak"
 )
+
+func TestMain(m *testing.M) {
+	goleak.VerifyTestMain(m)
+}
 
 type testcase struct {
 	name   string
@@ -146,10 +151,10 @@ func TestGet(t *testing.T) {
 			args: []string{"remove", "github.com/wa2/kazusa"},
 			code: 1,
 		},
-		// {
-		// 	name: "upgrade all tools",
-		// 	args: []string{"get", "-u"},
-		// },
+		{
+			name: "upgrade all tools",
+			args: []string{"get", "-u"},
+		},
 		{
 			name: "remove gox",
 			args: []string{"remove", "github.com/mitchellh/gox"},

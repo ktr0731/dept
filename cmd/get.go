@@ -128,51 +128,23 @@ func (c *getCommand) Run(args []string) int {
 				return err
 			}
 
-			outputDir = resolveOutputDir(projRoot, outputDir)
-
-			importPaths := make([]string, 0, len(df.Require))
-			for _, path := range paths {
-				var targetReq *deptfile.Require
-				for _, r := range df.Require {
-					if r.Path == path.ModRoot {
-						tmp, err := copystructure.Copy(r)
-						if err != nil {
-							return errors.Wrap(err, "failed to deepcopy a Require")
-						}
-						targetReq = tmp.(*deptfile.Require)
-					}
-					var err error
-					var i int
-					forTools(r, func(importPath string) bool {
-						importPaths = append(importPaths, importPath)
-						if toolNameConflicted(importPath, path.Repo) {
-							err = errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", path.Repo, importPath)
-							return false
-						}
-						// If -o passed with updating, rename tool to it.
-						if importPath == path.Repo && path.Out != "" {
-							r.ToolPaths[i].Name = path.Out
-						}
-						i++
-						return true
-					})
-					if err != nil {
-						return err
-					}
-				}
-
-				importPaths = append(importPaths, path.Repo)
-
-				df.Require = appendRequire(df.Require, targetReq, path)
+			if len(paths) == 0 && !update {
+				return errShowHelp
 			}
 
-			f, err := os.Create("tools.go")
+			cleanup, err := generateGoFile(df, paths)
 			if err != nil {
-				return errors.Wrap(err, "failed to create a temp file which contains required Go tools in the import statement")
+				return err
 			}
-			defer os.Remove("tools.go")
-			defer f.Close()
-			filegen.Generate(f, importPaths)
+			defer cleanup()
+
+			if len(paths) == 0 && update {
+				logger.Println("updating all tools to the latest version")
+				if err := c.gocmd.Get(ctx, "-u", "-d"); err != nil {
+					return errors.Wrap(err, "failed to update Go tools")
+				}
+				return nil
+			}
 
 			// Always getCommand runs Get.
 			// If an unmanaged tool is passed with -u option, '// indirect' will be marked
@@ -187,19 +159,11 @@ func (c *getCommand) Run(args []string) int {
 				return errors.Wrap(err, "failed to get Go tools dependencies")
 			}
 
-			handlePanic := func() {
-				if err := recover(); err != nil {
-					f.Close()
-					os.Remove("tools.go")
-					panic(err)
-				}
-			}
 			eg, ctx := errgroup.WithContext(ctx)
+			outputDir = resolveOutputDir(projRoot, outputDir)
 			for _, path := range paths {
 				path := path
 				eg.Go(func() error {
-					defer handlePanic()
-
 					// If also -u is passed, update Repo to the latest.
 					if update && path.Ver == "" {
 						logger.Printf("updating %s to the latest version", path.Repo)
@@ -236,13 +200,12 @@ func (c *getCommand) Run(args []string) int {
 
 // initModPaths parses passed paths and collect its module roots.
 // initModPaths must be call inside of a workspace.
-// If args and argsWithFlag are empty, initModPaths returns errShowHelp.
 func (c *getCommand) initModPaths(ctx context.Context, argsWithFlag []struct{ Out, Path string }, args []string) ([]*path, error) {
 	found := map[string]interface{}{}
 
 	paths := make([]*path, 0, len(argsWithFlag)+len(args))
 	if len(argsWithFlag) == 0 && len(args) == 0 {
-		return nil, errShowHelp
+		return nil, nil
 	}
 
 	eg, ctx := errgroup.WithContext(ctx)
@@ -278,6 +241,62 @@ func (c *getCommand) initModPaths(ctx context.Context, argsWithFlag []struct{ Ou
 		}
 	}
 	return paths, eg.Wait()
+}
+
+// generateGoFile generate a Go file which imports df.Require and paths.
+// File name is always "tools.go", also package name is "tools".
+// Returned func is a cleanup function.
+func generateGoFile(df *deptfile.File, paths []*path) (func(), error) {
+	importPaths := make([]string, 0, len(df.Require))
+	for _, path := range paths {
+		var targetReq *deptfile.Require
+		for _, r := range df.Require {
+			if r.Path == path.ModRoot {
+				tmp, err := copystructure.Copy(r)
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to deepcopy a Require")
+				}
+				targetReq = tmp.(*deptfile.Require)
+			}
+			var err error
+			var i int
+			forTools(r, func(importPath string) bool {
+				importPaths = append(importPaths, importPath)
+				if toolNameConflicted(importPath, path.Repo) {
+					err = errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", path.Repo, importPath)
+					return false
+				}
+				// If -o passed with updating, rename tool to it.
+				if importPath == path.Repo && path.Out != "" {
+					r.ToolPaths[i].Name = path.Out
+				}
+				i++
+				return true
+			})
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		importPaths = append(importPaths, path.Repo)
+
+		df.Require = appendRequire(df.Require, targetReq, path)
+	}
+
+	f, err := os.Create("tools.go")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create a temp file which contains required Go tools in the import statement")
+	}
+	defer f.Close()
+	filegen.Generate(f, importPaths)
+
+	return func() {
+		if err := recover(); err != nil {
+			os.Remove("tools.go")
+			panic(err)
+		}
+		os.Remove("tools.go")
+	}, nil
 }
 
 func getModuleRoot(ctx context.Context, gocmd gocmd.Command, path string) (string, error) {
