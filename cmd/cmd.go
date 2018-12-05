@@ -76,9 +76,6 @@ func FlagUsage(f *flag.FlagSet, repeatable bool) string {
 		}
 		fmt.Fprintf(&b, "\t%s\n", f.Usage)
 	})
-	if repeatable {
-		b.WriteString("\nNote that all repeatable flags must be put after normal flags.\n")
-	}
 	return b.String()
 }
 
@@ -103,13 +100,13 @@ func ExcludeFlagUsage(f *flag.FlagSet, repeatable bool, exclude []string) string
 // Also, it parse the module version from path.
 // For example,
 //   'https://github.com/ktr0731/itunes-cli/itunes@latest'
-//     repo = 'github.com/ktr0731/itunes-cli/itunes'
-//     ver  = '@latest'
+//     Repo = 'github.com/ktr0731/itunes-cli/itunes'
+//     Ver  = '@latest'
 func normalizePath(path string) (repo, ver string, err error) {
 	var u *url.URL
 	u, err = url.Parse(path)
 	if err != nil {
-		return "", "", errors.Wrap(err, "invalid repo passed")
+		return "", "", errors.Wrap(err, "invalid Repo passed")
 	}
 
 	path = filepath.Clean(u.Host + u.Path)

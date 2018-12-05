@@ -20,6 +20,50 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type outputFlagValue struct {
+	Values []struct{ Out, Path string }
+	f      *flag.FlagSet
+}
+
+func (v *outputFlagValue) Set(out string) error {
+	path := v.f.Arg(0)
+	if v.f.NArg() < 1 || (len(out) > 0 && out[0] == '-') || (len(path) > 0 && path[0] == '-') {
+		return errShowHelp
+	}
+	v.Values = append(v.Values, struct{ Out, Path string }{out, path})
+	return v.f.Parse(v.f.Args()[1:])
+}
+
+func (v *outputFlagValue) String() string {
+	s := make([]string, 0, len(v.Values))
+	for _, v := range v.Values {
+		s = append(s, fmt.Sprintf("%s=%s", v.Path, v.Out))
+	}
+	return strings.Join(s, ", ")
+}
+
+type getFlags struct {
+	f *flag.FlagSet
+
+	outputDir   string
+	update      bool
+	outputNames *outputFlagValue
+}
+
+func newGetFlags() *getFlags {
+	gf := &getFlags{f: flag.NewFlagSet("get", flag.ContinueOnError)}
+
+	// Suppress outputting by flag, delegate to cli.Command instead.
+	gf.f.SetOutput(ioutil.Discard)
+	gf.f.StringVar(&gf.outputDir, "d", "", "Output dir to store built Go tools")
+	gf.f.BoolVar(&gf.update, "u", false, "Update the specified tool to the latest version")
+
+	gf.outputNames = &outputFlagValue{Values: []struct{ Out, Path string }{}, f: gf.f}
+	gf.f.Var(gf.outputNames, "o", "Output name")
+
+	return gf
+}
+
 // getCommand gets a passed Go tool from the remote repository.
 // get generate the artifact as follows.
 //
@@ -30,11 +74,11 @@ import (
 //   5. TODO: Gopkg.toml
 //
 type getCommand struct {
-	f         *flag.FlagSet
-	rf        repeatableFlagSet
 	ui        cli.Ui
 	gocmd     gocmd.Command
 	workspace deptfile.Workspacer
+
+	f *getFlags
 }
 
 func (c *getCommand) UI() cli.Ui {
@@ -44,12 +88,20 @@ func (c *getCommand) UI() cli.Ui {
 var getHelpTmpl = `Usage: dept get <package>
 
 %s
-%s`
+%s
+Examples:
+
+    $ dept get github.com/mitchellh/gox
+    $ dept get -o ci github.com/golangci/golangci-lint honnef.co/go/tools/cmd/unused
+`
 
 // Help shows the help message.
 // Before call Help, getCommand.f must be initialized.
 func (c *getCommand) Help() string {
-	return fmt.Sprintf(getHelpTmpl, ExcludeFlagUsage(c.f, false, []string{"o"}), FlagUsage(c.rf(), true))
+	return fmt.Sprintf(
+		getHelpTmpl,
+		ExcludeFlagUsage(c.f.f, false, []string{"o"}),
+		ExcludeFlagUsage(c.f.f, true, []string{"d", "u"}))
 }
 
 func (c *getCommand) Synopsis() string {
@@ -57,36 +109,21 @@ func (c *getCommand) Synopsis() string {
 }
 
 func (c *getCommand) Run(args []string) int {
-	// First, parse normal flags only.
-	if err := c.f.Parse(args); err != nil {
+	if err := c.f.f.Parse(args); err != nil {
 		c.UI().Error(err.Error())
 		return 1
 	}
+	args = c.f.f.Args()
 
-	outputDir := c.f.Lookup("d").Value.String()
+	outputDir := c.f.outputDir
 	if outputDir != "" {
 		outputDir, _ = filepath.Abs(outputDir)
 	}
-	update := c.f.Lookup("u").Value.String() == "true"
-	dummyO := c.f.Lookup("o")
-	oCalled := dummyO.Value.String() == "true"
-
-	if !oCalled {
-		// If -o is not passed, all args are parsed.
-		args = c.f.Args()
-	} else {
-		// There are repeatable flags.
-		// Repeatable flags + all args.
-		args = append([]string{"-o"}, c.f.Args()...)
-	}
+	update := c.f.update
 
 	return run(c, func(ctx context.Context) error {
-		if len(args) == 0 {
-			return errShowHelp
-		}
-
 		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
-			paths, err := c.parseArgs(ctx, args)
+			paths, err := c.initModPaths(ctx, c.f.outputNames.Values, args)
 			if err != nil {
 				return err
 			}
@@ -97,7 +134,7 @@ func (c *getCommand) Run(args []string) int {
 			for _, path := range paths {
 				var targetReq *deptfile.Require
 				for _, r := range df.Require {
-					if r.Path == path.modRoot {
+					if r.Path == path.ModRoot {
 						tmp, err := copystructure.Copy(r)
 						if err != nil {
 							return errors.Wrap(err, "failed to deepcopy a Require")
@@ -108,13 +145,13 @@ func (c *getCommand) Run(args []string) int {
 					var i int
 					forTools(r, func(importPath string) bool {
 						importPaths = append(importPaths, importPath)
-						if toolNameConflicted(importPath, path.repo) {
-							err = errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", path.repo, importPath)
+						if toolNameConflicted(importPath, path.Repo) {
+							err = errors.Errorf("tool names conflicted: %s and %s. please rename tool name by -o option.", path.Repo, importPath)
 							return false
 						}
 						// If -o passed with updating, rename tool to it.
-						if importPath == path.repo && path.out != "" {
-							r.ToolPaths[i].Name = path.out
+						if importPath == path.Repo && path.Out != "" {
+							r.ToolPaths[i].Name = path.Out
 						}
 						i++
 						return true
@@ -124,7 +161,7 @@ func (c *getCommand) Run(args []string) int {
 					}
 				}
 
-				importPaths = append(importPaths, path.repo)
+				importPaths = append(importPaths, path.Repo)
 
 				df.Require = appendRequire(df.Require, targetReq, path)
 			}
@@ -163,23 +200,23 @@ func (c *getCommand) Run(args []string) int {
 				eg.Go(func() error {
 					defer handlePanic()
 
-					// If also -u is passed, update repo to the latest.
-					if update && path.ver == "" {
-						logger.Printf("updating %s to the latest version", path.repo)
-						if err := c.gocmd.Get(ctx, "-u", "-d", path.repo); err != nil {
+					// If also -u is passed, update Repo to the latest.
+					if update && path.Ver == "" {
+						logger.Printf("updating %s to the latest version", path.Repo)
+						if err := c.gocmd.Get(ctx, "-u", "-d", path.Repo); err != nil {
 							return errors.Wrap(err, "failed to get Go tools dependencies")
 						}
 					}
 
 					var binPath string
-					if path.out != "" {
-						binPath = filepath.Join(outputDir, path.out)
+					if path.Out != "" {
+						binPath = filepath.Join(outputDir, path.Out)
 					} else {
-						binPath = filepath.Join(outputDir, filepath.Base(path.repo))
+						binPath = filepath.Join(outputDir, filepath.Base(path.Repo))
 					}
-					logger.Printf("building %s to %s", path.repo, binPath)
-					if err := c.gocmd.Build(ctx, "-o", binPath, path.repo); err != nil {
-						return errors.Wrapf(err, "failed to buld %s (bin path = %s)", path.repo, binPath)
+					logger.Printf("building %s to %s", path.Repo, binPath)
+					if err := c.gocmd.Build(ctx, "-o", binPath, path.Repo); err != nil {
+						return errors.Wrapf(err, "failed to buld %s (bin path = %s)", path.Repo, binPath)
 					}
 
 					return nil
@@ -197,23 +234,48 @@ func (c *getCommand) Run(args []string) int {
 	})
 }
 
-// parseArgs parses repeatable flags and args.
-// parseArgs must be call inside of a workspace.
-func (c *getCommand) parseArgs(ctx context.Context, args []string) ([]*path, error) {
-	paths, err := c.rf.Parse(args)
-	if err != nil {
-		return nil, err
-	}
-	if len(paths) == 0 {
+// initModPaths parses passed paths and collect its module roots.
+// initModPaths must be call inside of a workspace.
+// If args and argsWithFlag are empty, initModPaths returns errShowHelp.
+func (c *getCommand) initModPaths(ctx context.Context, argsWithFlag []struct{ Out, Path string }, args []string) ([]*path, error) {
+	found := map[string]interface{}{}
+
+	paths := make([]*path, 0, len(argsWithFlag)+len(args))
+	if len(argsWithFlag) == 0 && len(args) == 0 {
 		return nil, errShowHelp
 	}
+
 	eg, ctx := errgroup.WithContext(ctx)
-	for _, p := range paths {
-		p := p
+
+	appendPath := func(p, out string) error {
+		if len(p) > 0 && p[0] == '-' {
+			return errors.Errorf("found '%s' after args. all flags must be put before args", p)
+		}
+		repo, ver, err := normalizePath(p)
+		if err != nil {
+			return err
+		}
+		if _, ok := found[repo]; ok {
+			return nil
+		}
+		path := &path{Val: p, Repo: repo, Ver: ver, Out: out}
+		paths = append(paths, path)
 		eg.Go(func() (err error) {
-			p.modRoot, err = getModuleRoot(ctx, c.gocmd, p.repo)
+			path.ModRoot, err = getModuleRoot(ctx, c.gocmd, path.Repo)
 			return
 		})
+		return nil
+	}
+
+	for _, a := range argsWithFlag {
+		if err := appendPath(a.Path, a.Out); err != nil {
+			return nil, err
+		}
+	}
+	for _, path := range args {
+		if err := appendPath(path, ""); err != nil {
+			return nil, err
+		}
 	}
 	return paths, eg.Wait()
 }
@@ -244,22 +306,22 @@ func toolNameConflicted(p1, p2 string) bool {
 }
 
 // appendRequire appends a tool requirment that named r to reqs.
-// If r is nil, appendRequire assigns a new one with Path=modRoot.
+// If r is nil, appendRequire assigns a new one with Path=ModRoot.
 // If r is nil, it means the module of r is not managed yet.
 //
 // uri is the full path for tool r.
-// modRoot is the module root of r.
+// ModRoot is the module root of r.
 func appendRequire(reqs []*deptfile.Require, r *deptfile.Require, path *path) []*deptfile.Require {
-	toolPath := strings.TrimPrefix(path.repo, path.modRoot)
+	toolPath := strings.TrimPrefix(path.Repo, path.ModRoot)
 	// a new module
 	if r == nil {
-		r = &deptfile.Require{Path: path.modRoot}
+		r = &deptfile.Require{Path: path.ModRoot}
 		var t *deptfile.Tool
 		// tool is not in the module root.
 		if toolPath != "" {
-			t = &deptfile.Tool{Path: toolPath, Name: path.out}
+			t = &deptfile.Tool{Path: toolPath, Name: path.Out}
 		} else {
-			t = &deptfile.Tool{Path: "/", Name: path.out}
+			t = &deptfile.Tool{Path: "/", Name: path.Out}
 		}
 		r.ToolPaths = append(r.ToolPaths, t)
 		return append(reqs, r)
@@ -267,9 +329,9 @@ func appendRequire(reqs []*deptfile.Require, r *deptfile.Require, path *path) []
 
 	var t *deptfile.Tool
 	if toolPath != "" {
-		t = &deptfile.Tool{Path: toolPath, Name: path.out}
+		t = &deptfile.Tool{Path: toolPath, Name: path.Out}
 	} else {
-		t = &deptfile.Tool{Path: "/", Name: path.out}
+		t = &deptfile.Tool{Path: "/", Name: path.Out}
 		toolPath = "/"
 	}
 	var duplicated bool
@@ -288,7 +350,7 @@ func appendRequire(reqs []*deptfile.Require, r *deptfile.Require, path *path) []
 		return len(r.ToolPaths[i].Path) < len(r.ToolPaths[j].Path)
 	})
 	for i := range reqs {
-		if reqs[i].Path == path.modRoot {
+		if reqs[i].Path == path.ModRoot {
 			reqs[i] = r
 			return reqs
 		}
@@ -297,78 +359,30 @@ func appendRequire(reqs []*deptfile.Require, r *deptfile.Require, path *path) []
 }
 
 type path struct {
-	// val is the original value of path.
+	// Val is the original value of path.
 	// For example, 'github.com/ktr0731/salias@v0.1.0'
-	val string
-	// modRoot is the module root of path without the version.
+	Val string
+	// ModRoot is the module root of path without the version.
 	// For example, 'github.com/ktr0731/salias'
-	modRoot string
-	// repo is the repository name of val.
+	ModRoot string
+	// Repo is the repository name of Val.
 	// For example, 'github.com/ktr0731/salias'
-	repo string
-	// ver is the version of val.
+	Repo string
+	// Ver is the version of Val.
 	// For example, '@v0.1.0'
-	ver string
-	// out is the output name of the tool specified by path.
+	Ver string
+	// Out is the output name of the tool specified by path.
 	// For example, 'salias'
-	// If out is empty, it means out is same as filepath.Base(repo).
-	out string
+	// If Out is empty, it means Out is same as filepath.Base(Repo).
+	Out string
 }
 
 // modPath returns the completely module path which includes module's version.
 func (p *path) modPath() string {
-	if p.ver != "" {
-		return p.modRoot + "@" + p.ver
+	if p.Ver != "" {
+		return p.ModRoot + "@" + p.Ver
 	}
-	return p.modRoot
-}
-
-type repeatableFlagSet func() *flag.FlagSet
-
-var defaultRepeatableFlagSet repeatableFlagSet = func() *flag.FlagSet {
-	f := flag.NewFlagSet("subget", flag.ExitOnError)
-	f.String("o", "", "Output name")
-	return f
-}
-
-// TODO: use flags
-func (f repeatableFlagSet) Parse(args []string) ([]*path, error) {
-	pargs := make([]*path, 0, len(args))
-	for i := 0; i < len(args); i++ {
-		switch len(args[i:]) {
-		case 0:
-			return pargs, nil
-		case 1, 2:
-			// -o requires two arguments.
-			if args[i] == "-o" {
-				return nil, errShowHelp
-			}
-			p := args[i]
-			repo, ver, err := normalizePath(p)
-			if err != nil {
-				return nil, err
-			}
-			pargs = append(pargs, &path{val: p, repo: repo, ver: ver})
-		default:
-			if args[i] == "-o" {
-				p, out := args[i+2], args[i+1]
-				repo, ver, err := normalizePath(p)
-				if err != nil {
-					return nil, err
-				}
-				pargs = append(pargs, &path{val: p, repo: repo, ver: ver, out: out})
-				i += 2
-			} else {
-				p := args[i]
-				repo, ver, err := normalizePath(p)
-				if err != nil {
-					return nil, err
-				}
-				pargs = append(pargs, &path{val: p, repo: repo, ver: ver})
-			}
-		}
-	}
-	return pargs, nil
+	return p.ModRoot
 }
 
 // NewGet returns an initialized get command instance.
@@ -377,18 +391,8 @@ func NewGet(
 	gocmd gocmd.Command,
 	workspace deptfile.Workspacer,
 ) cli.Command {
-	f := flag.NewFlagSet("get", flag.ContinueOnError)
-	// Suppress outputting by flag, delegate to cli.Command instead.
-	f.SetOutput(ioutil.Discard)
-	f.String("d", "", "Output dir to store built Go tools")
-	f.Bool("u", false, "Update the specified tool to the latest version")
-
-	// -o is a dummy flag. It is used to stop flag parsing.
-	f.Bool("o", false, "dummy flag")
-	rf := defaultRepeatableFlagSet
 	return &getCommand{
-		f:         f,
-		rf:        rf,
+		f:         newGetFlags(),
 		ui:        ui,
 		gocmd:     gocmd,
 		workspace: workspace,

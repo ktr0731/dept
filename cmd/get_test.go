@@ -2,7 +2,9 @@ package cmd_test
 
 import (
 	"context"
+	"flag"
 	"io"
+	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -74,6 +76,28 @@ func TestGetRun(t *testing.T) {
 		}
 		if eout := mockUI.ErrorWriter().String(); !strings.Contains(eout, "dept init") {
 			t.Errorf("Run must show 'dept init' related error message in case of gotool.mod is not found, but '%s'", eout)
+		}
+	})
+
+	t.Run("Run returns 1 because some flags put after args", func(t *testing.T) {
+		mockUI := newMockUI()
+		mockGoCMD := &gocmd.CommandMock{
+			ListFunc: func(ctx context.Context, args ...string) (io.Reader, error) {
+				return emptyReader, nil
+			},
+		}
+		mockWorkspace := &deptfile.WorkspacerMock{
+			DoFunc: func(f func(projectDir string, gomod *deptfile.File) error) error {
+				return deptfile.ErrNotFound
+			},
+		}
+
+		cmd := cmd.NewGet(mockUI, mockGoCMD, mockWorkspace)
+
+		code := cmd.Run([]string{"github.com/ktr0731/go-modules-test", "-o", "foo", "bar"})
+
+		if code != 1 {
+			t.Errorf("Run must return code 1, but got %d", code)
 		}
 	})
 
@@ -334,10 +358,11 @@ type path struct {
 	out  string
 }
 
-func TestRepeatableFlagSet(t *testing.T) {
+func TestOutputFlagValue(t *testing.T) {
 	cases := []struct {
 		args               []string
 		expectedParsedArgs []*path
+		expectedArgs       []string
 		hasErr             bool
 	}{
 		{
@@ -362,14 +387,8 @@ func TestRepeatableFlagSet(t *testing.T) {
 			},
 		},
 		{
-			args: []string{"github.com/leaf/whitealbum2@v1.1.0"},
-			expectedParsedArgs: []*path{
-				{
-					val:  "github.com/leaf/whitealbum2@v1.1.0",
-					ver:  "v1.1.0",
-					repo: "github.com/leaf/whitealbum2",
-				},
-			},
+			args:         []string{"github.com/leaf/whitealbum2@v1.1.0"},
+			expectedArgs: []string{"github.com/leaf/whitealbum2@v1.1.0"},
 		},
 		{
 			args: []string{"-o", "wa2", "github.com/leaf/whitealbum2", "-o", "ic", "github.com/leaf/whitealbum2/introductory-chapter"},
@@ -394,71 +413,57 @@ func TestRepeatableFlagSet(t *testing.T) {
 					repo: "github.com/leaf/whitealbum2",
 					out:  "wa2",
 				},
-				{
-					val:  "github.com/leaf/whitealbum2/introductory-chapter",
-					repo: "github.com/leaf/whitealbum2/introductory-chapter",
-				},
 			},
+			expectedArgs: []string{"github.com/leaf/whitealbum2/introductory-chapter"},
 		},
 		{
-			args: []string{"github.com/leaf/whitealbum2", "-o", "ic", "github.com/leaf/whitealbum2/introductory-chapter"},
-			expectedParsedArgs: []*path{
-				{
-					val:  "github.com/leaf/whitealbum2",
-					repo: "github.com/leaf/whitealbum2",
-				},
-				{
-					val:  "github.com/leaf/whitealbum2/introductory-chapter",
-					repo: "github.com/leaf/whitealbum2/introductory-chapter",
-					out:  "ic",
-				},
-			},
-		},
-		{
-			args: []string{"github.com/leaf/whitealbum2@v1.1.0", "-o", "ic", "github.com/leaf/whitealbum2/introductory-chapter@v1.0.0", "-o", "cc", "github.com/leaf/whitealbum2/closing-chapter@v1.0.1"},
-			expectedParsedArgs: []*path{
-				{
-					val:  "github.com/leaf/whitealbum2@v1.1.0",
-					repo: "github.com/leaf/whitealbum2",
-					ver:  "v1.1.0",
-				},
-				{
-					val:  "github.com/leaf/whitealbum2/introductory-chapter@v1.0.0",
-					repo: "github.com/leaf/whitealbum2/introductory-chapter",
-					ver:  "v1.0.0",
-					out:  "ic",
-				},
-				{
-					val:  "github.com/leaf/whitealbum2/closing-chapter@v1.0.1",
-					repo: "github.com/leaf/whitealbum2/closing-chapter",
-					ver:  "v1.0.1",
-					out:  "cc",
-				},
-			},
+			args:         []string{"github.com/leaf/whitealbum2"},
+			expectedArgs: []string{"github.com/leaf/whitealbum2"},
 		},
 		{args: []string{"-o"}, hasErr: true},
 		{args: []string{"-o", "github.com/leaf/whitealbum2"}, hasErr: true},
-		{args: []string{"github.com/leaf/whitealbum2", "-o"}, hasErr: true},
-		{args: []string{"github.com/leaf/whitealbum2", "-o", "ic"}, hasErr: true},
+		{args: []string{"-o", "wa2", "github.com/leaf/whitealbum2", "-o"}, hasErr: true},
+		{args: []string{"-o", "wa2", "github.com/leaf/whitealbum2", "-o", "foo"}, hasErr: true},
 	}
 
 	for _, c := range cases {
 		t.Run(strings.Join(c.args, " "), func(t *testing.T) {
-			f := cmd.RepeatableFlagSet
-			parsedArgs, err := f.Parse(c.args)
+			f := flag.NewFlagSet("test", flag.ContinueOnError)
+			f.SetOutput(ioutil.Discard)
+			v := cmd.NewOutputFlagValue(f)
+			f.Var(v, "o", "")
+			err := f.Parse(c.args)
+
 			if c.hasErr {
 				if err == nil {
-					t.Error("RepeatableFlagSet must return an error, but got nil")
+					t.Error("outputFlagValue must return an error, but got nil")
 				}
 				return
 			} else {
 				if err != nil {
-					t.Fatalf("RepeatableFlagSet must not return any errors, but got %s", err)
+					t.Fatalf("outputFlagValue must not return any errors, but got %s", err)
 				}
 			}
-			for i, expected := range c.expectedParsedArgs {
-				actual := parsedArgs[i]
-				cmd.AssertPath(t, expected.val, expected.repo, expected.ver, expected.out, actual)
+			pargs := v.Values
+			if len(c.expectedParsedArgs) != len(pargs) {
+				t.Fatalf("number of expected args and vals must be equal, but %d and %d", len(c.expectedParsedArgs), len(pargs))
+			}
+			args := f.Args()
+			if len(c.expectedArgs) != len(args) {
+				t.Fatalf("number of expected args and vals must be equal, but %d and %d", len(c.expectedParsedArgs), len(args))
+			}
+			for i, arg := range c.expectedParsedArgs {
+				if arg.val != pargs[i].Path {
+					t.Errorf("path is wrong: expected = %s, actual = %s", arg.val, pargs[i].Path)
+				}
+				if arg.out != pargs[i].Out {
+					t.Errorf("out is wrong: expected = %s, actual = %s", arg.out, pargs[i].Out)
+				}
+			}
+			for i, path := range c.expectedArgs {
+				if path != args[i] {
+					t.Errorf("path is wrong: expected = %s, actual = %s", path, args[i])
+				}
 			}
 		})
 	}
