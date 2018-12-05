@@ -14,12 +14,67 @@ Go tools like [Golint](https://github.com/golang/lint), [errcheck](https://githu
 `dept` is based on Go modules. All dependency resolution are provided by `go mod` commands.
 
 ## Usage
+
+### init
 At first, let's create `gotool.mod` in a project root by the following command.
 ``` sh
 $ dept init
 ```
 
-To add a new tool to the project:
+### get
+`dept get` installs binaries to the specified directory.
+
 ``` sh
 $ dept get github.com/mitchellh/gox
+```
+
+You can select the specified version like Go modules:
+``` sh
+$ dept get github.com/mitchellh/gox@v0.3.0
+$ dept get github.com/mitchellh/gox@v0.1.0
+```
+
+To install a binary with another name:
+``` sh
+$ dept get -o lint github.com/golangci-lint/cmd/golangci-lint
+```
+
+Update tools to the latest version:
+``` sh
+$ dept get -u github.com/mitchellh/gox
+$ dept get -u # update all tools
+```
+
+### remove
+`dept remove` uninstalls passed tools.
+
+``` sh
+$ dept remove github.com/mitchellh/gox
+```
+
+### build
+`dept build` builds all managed tools.
+
+``` sh
+$ dept build
+```
+
+If `$GOBIN` enabled, it will be used preferentially.
+``` sh
+$ GOBIN=$PWD/bin dept build
+```
+
+Also, `-d` flag is provided.
+``` sh
+$ dept build -d bin
+```
+
+### list
+`dept list` list ups all tools managed by `dept`.
+
+``` sh
+$ dept get github.com/golangci/golangci-lint/cmd/golangci-lint github.com/matryer/moq
+$ dept list
+github.com/golangci/golangci-lint/cmd/golangci-lint v1.12.3
+github.com/matryer/moq v0.0.0-20181107154629-5df7c6ae5624
 ```

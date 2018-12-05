@@ -31,7 +31,7 @@ func (c *removeCommand) UI() cli.Ui {
 }
 
 func (c *removeCommand) Help() string {
-	return "Usage: dept remove <package>"
+	return "Usage: dept remove <tool path>"
 }
 
 func (c *removeCommand) Synopsis() string {
