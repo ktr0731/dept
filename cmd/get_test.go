@@ -352,9 +352,7 @@ func TestGetRun(t *testing.T) {
 
 // Same as cmd.path.
 type path struct {
-	val  string
-	repo string
-	ver  string
+	path string
 	out  string
 }
 
@@ -369,8 +367,7 @@ func TestOutputFlagValue(t *testing.T) {
 			args: []string{"-o", "wa2", "github.com/leaf/whitealbum2"},
 			expectedParsedArgs: []*path{
 				{
-					val:  "github.com/leaf/whitealbum2",
-					repo: "github.com/leaf/whitealbum2",
+					path: "github.com/leaf/whitealbum2",
 					out:  "wa2",
 				},
 			},
@@ -379,9 +376,7 @@ func TestOutputFlagValue(t *testing.T) {
 			args: []string{"-o", "wa2", "github.com/leaf/whitealbum2@v1.1.0"},
 			expectedParsedArgs: []*path{
 				{
-					val:  "github.com/leaf/whitealbum2@v1.1.0",
-					ver:  "v1.1.0",
-					repo: "github.com/leaf/whitealbum2",
+					path: "github.com/leaf/whitealbum2@v1.1.0",
 					out:  "wa2",
 				},
 			},
@@ -394,13 +389,11 @@ func TestOutputFlagValue(t *testing.T) {
 			args: []string{"-o", "wa2", "github.com/leaf/whitealbum2", "-o", "ic", "github.com/leaf/whitealbum2/introductory-chapter"},
 			expectedParsedArgs: []*path{
 				{
-					val:  "github.com/leaf/whitealbum2",
-					repo: "github.com/leaf/whitealbum2",
+					path: "github.com/leaf/whitealbum2",
 					out:  "wa2",
 				},
 				{
-					val:  "github.com/leaf/whitealbum2/introductory-chapter",
-					repo: "github.com/leaf/whitealbum2/introductory-chapter",
+					path: "github.com/leaf/whitealbum2/introductory-chapter",
 					out:  "ic",
 				},
 			},
@@ -409,8 +402,7 @@ func TestOutputFlagValue(t *testing.T) {
 			args: []string{"-o", "wa2", "github.com/leaf/whitealbum2", "github.com/leaf/whitealbum2/introductory-chapter"},
 			expectedParsedArgs: []*path{
 				{
-					val:  "github.com/leaf/whitealbum2",
-					repo: "github.com/leaf/whitealbum2",
+					path: "github.com/leaf/whitealbum2",
 					out:  "wa2",
 				},
 			},
@@ -453,8 +445,8 @@ func TestOutputFlagValue(t *testing.T) {
 				t.Fatalf("number of expected args and vals must be equal, but %d and %d", len(c.expectedParsedArgs), len(args))
 			}
 			for i, arg := range c.expectedParsedArgs {
-				if arg.val != pargs[i].Path {
-					t.Errorf("path is wrong: expected = %s, actual = %s", arg.val, pargs[i].Path)
+				if arg.path != pargs[i].Path {
+					t.Errorf("path is wrong: expected = %s, actual = %s", arg.path, pargs[i].Path)
 				}
 				if arg.out != pargs[i].Out {
 					t.Errorf("out is wrong: expected = %s, actual = %s", arg.out, pargs[i].Out)

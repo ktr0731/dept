@@ -16,9 +16,21 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+type buildFlagSet struct {
+	*flag.FlagSet
+
+	outputDir string
+}
+
+func newBuildFlagSet() *buildFlagSet {
+	bf := &buildFlagSet{FlagSet: flag.NewFlagSet("build", flag.ExitOnError)}
+	bf.StringVar(&bf.outputDir, "d", "", "Output dir to store built Go tools")
+	return bf
+}
+
 // buildCommand builds Go tools based on gotool.mod.
 type buildCommand struct {
-	f         *flag.FlagSet
+	f         *buildFlagSet
 	ui        cli.Ui
 	gocmd     gocmd.Command
 	workspace deptfile.Workspacer
@@ -29,7 +41,7 @@ func (c *buildCommand) UI() cli.Ui {
 }
 
 func (c *buildCommand) Help() string {
-	return fmt.Sprintf("Usage: dept build\n\n%s", FlagUsage(c.f, false))
+	return fmt.Sprintf("Usage: dept build\n\n%s", FlagUsage(c.f.FlagSet, false))
 }
 
 func (c *buildCommand) Synopsis() string {
@@ -37,14 +49,15 @@ func (c *buildCommand) Synopsis() string {
 }
 
 func (c *buildCommand) Run(args []string) int {
-	c.f.Parse(args)
+	if err := c.f.Parse(args); err != nil {
+		c.UI().Error(err.Error())
+		return 1
+	}
 
-	outputDir := c.f.Lookup("d").Value.String()
+	outputDir := c.f.outputDir
 	if outputDir != "" {
 		outputDir, _ = filepath.Abs(outputDir)
 	}
-
-	args = c.f.Args()
 
 	return run(c, func(ctx context.Context) error {
 		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
@@ -100,10 +113,8 @@ func NewBuild(
 	gocmd gocmd.Command,
 	workspace deptfile.Workspacer,
 ) cli.Command {
-	f := flag.NewFlagSet("build", flag.ExitOnError)
-	f.String("d", "", "Output dir to store built Go tools")
 	return &buildCommand{
-		f:         f,
+		f:         newBuildFlagSet(),
 		ui:        ui,
 		gocmd:     gocmd,
 		workspace: workspace,

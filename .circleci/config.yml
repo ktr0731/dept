@@ -30,8 +30,16 @@ jobs:
           command: go build
 
       - run:
+          name: build all Go tools
+          command: ./dept build
+
+      - run:
           name: test
           command: go test -v -race -tags e2e -coverpkg ./... -covermode=atomic -coverprofile=coverage.txt $(go list -tags e2e ./... | tail -n +2 | egrep -v '(logger|deptfileutil)')
+
+      - run:
+          name: lint
+          command: _tools/cilint run -e '(os.Chdir|deptfileutil.Copy|Write|Parse)'
 
       - run:
           name: codecov

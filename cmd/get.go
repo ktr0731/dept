@@ -42,24 +42,24 @@ func (v *outputFlagValue) String() string {
 	return strings.Join(s, ", ")
 }
 
-type getFlags struct {
-	f *flag.FlagSet
+type getFlagSet struct {
+	*flag.FlagSet
 
 	outputDir   string
 	update      bool
 	outputNames *outputFlagValue
 }
 
-func newGetFlags() *getFlags {
-	gf := &getFlags{f: flag.NewFlagSet("get", flag.ContinueOnError)}
+func newGetFlagSet() *getFlagSet {
+	gf := &getFlagSet{FlagSet: flag.NewFlagSet("get", flag.ContinueOnError)}
 
 	// Suppress outputting by flag, delegate to cli.Command instead.
-	gf.f.SetOutput(ioutil.Discard)
-	gf.f.StringVar(&gf.outputDir, "d", "", "Output dir to store built Go tools")
-	gf.f.BoolVar(&gf.update, "u", false, "Update the specified tool to the latest version")
+	gf.SetOutput(ioutil.Discard)
+	gf.StringVar(&gf.outputDir, "d", "", "Output dir to store built Go tools")
+	gf.BoolVar(&gf.update, "u", false, "Update the specified tool to the latest version")
 
-	gf.outputNames = &outputFlagValue{Values: []struct{ Out, Path string }{}, f: gf.f}
-	gf.f.Var(gf.outputNames, "o", "Output name")
+	gf.outputNames = &outputFlagValue{Values: []struct{ Out, Path string }{}, f: gf.FlagSet}
+	gf.Var(gf.outputNames, "o", "Output name (first arg is output name, second arg is path)")
 
 	return gf
 }
@@ -78,7 +78,7 @@ type getCommand struct {
 	gocmd     gocmd.Command
 	workspace deptfile.Workspacer
 
-	f *getFlags
+	f *getFlagSet
 }
 
 func (c *getCommand) UI() cli.Ui {
@@ -87,12 +87,23 @@ func (c *getCommand) UI() cli.Ui {
 
 var getHelpTmpl = `Usage: dept get <package>
 
+get installs the passed Go tools to the specified directory.
+If $GOBIN enabled, it will be used preferentially.
+-u flag updates the passed Go tools. If there are no args,
+updates all Go tools which is already installed.
+
 %s
 %s
 Examples:
 
     $ dept get github.com/mitchellh/gox
+    $ dept get github.com/mitchellh/gox@v0.3.0
+    $ dept get github.com/mitchellh/gox@v0.1.0
+
     $ dept get -o ci github.com/golangci/golangci-lint/cmd/golangci-lint
+
+    $ dept get -d bin github.com/mitchellh/gox
+    $ GOBIN=$PWD/bin dept get github.com/mitchellh/gox
 `
 
 // Help shows the help message.
@@ -100,8 +111,8 @@ Examples:
 func (c *getCommand) Help() string {
 	return fmt.Sprintf(
 		getHelpTmpl,
-		ExcludeFlagUsage(c.f.f, false, []string{"o"}),
-		ExcludeFlagUsage(c.f.f, true, []string{"d", "u"}))
+		ExcludeFlagUsage(c.f.FlagSet, false, []string{"o"}),
+		ExcludeFlagUsage(c.f.FlagSet, true, []string{"d", "u"}))
 }
 
 func (c *getCommand) Synopsis() string {
@@ -109,11 +120,11 @@ func (c *getCommand) Synopsis() string {
 }
 
 func (c *getCommand) Run(args []string) int {
-	if err := c.f.f.Parse(args); err != nil {
+	if err := c.f.Parse(args); err != nil {
 		c.UI().Error(err.Error())
 		return 1
 	}
-	args = c.f.f.Args()
+	args = c.f.Args()
 
 	outputDir := c.f.outputDir
 	if outputDir != "" {
@@ -411,7 +422,7 @@ func NewGet(
 	workspace deptfile.Workspacer,
 ) cli.Command {
 	return &getCommand{
-		f:         newGetFlags(),
+		f:         newGetFlagSet(),
 		ui:        ui,
 		gocmd:     gocmd,
 		workspace: workspace,

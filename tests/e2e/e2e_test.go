@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -245,16 +246,15 @@ func TestGetExamples(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to init deptfile: %s", err)
 	}
+	re := regexp.MustCompile(`.*\$.*dept\s(.*)$`)
 	s := bufio.NewScanner(out)
 	for s.Scan() {
 		str := strings.TrimSpace(s.Text())
-		sub := "$ dept "
-		i := strings.Index(str, sub)
-		if i == -1 {
+		sub := re.FindStringSubmatch(str)
+		if sub == nil {
 			continue
 		}
-		str = str[i+len(sub):]
-		cmd := strings.Split(str, " ")
+		cmd := strings.Split(sub[1], " ")
 		do(t, testcase{
 			name: str,
 			args: cmd,

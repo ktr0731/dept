@@ -52,9 +52,9 @@ func setupEnv(t *testing.T, cwd string) func() {
 		t.Fatalf("failed to open and read testdata/gotool.mod: %s", err)
 	}
 
-	os.Chdir(dir)
+	_ = os.Chdir(dir)
 	return func() {
-		os.Chdir(pwd)
+		_ = os.Chdir(pwd)
 		os.RemoveAll(dir)
 	}
 }
