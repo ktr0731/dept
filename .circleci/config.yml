@@ -35,11 +35,11 @@ jobs:
 
       - run:
           name: test
-          command: go test -v -race -tags e2e -coverpkg ./... -covermode=atomic -coverprofile=coverage.txt $(go list -tags e2e ./... | tail -n +2 | egrep -v '(logger|deptfileutil)')
+          command: go test -v -race -tags e2e -coverpkg ./... -covermode=atomic -coverprofile=coverage.txt $(go list -tags e2e ./... | tail -n +2 | egrep -v '(logger)')
 
       - run:
           name: lint
-          command: _tools/cilint run -e '(os.Chdir|deptfileutil.Copy|Write|Parse)'
+          command: _tools/cilint run -e '(os.Chdir|fileutil.Copy|Write|Parse)'
 
       - run:
           name: codecov

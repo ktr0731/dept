@@ -1,4 +1,4 @@
-package deptfileutil
+package fileutil
 
 import (
 	"io"
@@ -17,7 +17,7 @@ func Copy(to, from string) error {
 
 	tf, err := os.Create(to)
 	if err != nil {
-		return errors.Wrapf(err, "failed to open %s", to)
+		return errors.Wrapf(err, "failed to create %s", to)
 	}
 	defer tf.Close()
 
