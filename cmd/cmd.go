@@ -74,7 +74,11 @@ func FlagUsage(f *flag.FlagSet, repeatable bool) string {
 		} else {
 			b.WriteString("\t")
 		}
-		fmt.Fprintf(&b, "\t%s\n", f.Usage)
+		fmt.Fprintf(&b, "\t%s", f.Usage)
+		if f.DefValue != "" {
+			fmt.Fprintf(&b, ` (default "%s")`, f.DefValue)
+		}
+		fmt.Fprint(&b, "\n")
 	})
 	return b.String()
 }

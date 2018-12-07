@@ -17,7 +17,7 @@ func TestListRun(t *testing.T) {
 					Require: []*deptfile.Require{
 						{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
 						{Path: "github.com/ktr0731/itunes-cli", ToolPaths: []*deptfile.Tool{{Path: "/itunes"}}},
-						{Path: "honnef.co/go/tools", ToolPaths: []*deptfile.Tool{{Path: "/cmd/unused"}, {Path: "/cmd/statickcheck"}}},
+						{Path: "honnef.co/go/tools", ToolPaths: []*deptfile.Tool{{Path: "/cmd/unused"}, {Path: "/cmd/staticcheck"}}},
 					},
 				})
 			},
@@ -42,7 +42,7 @@ func TestListRun(t *testing.T) {
 					Require: []*deptfile.Require{
 						{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
 						{Path: "github.com/ktr0731/itunes-cli", ToolPaths: []*deptfile.Tool{{Path: "/itunes"}}},
-						{Path: "honnef.co/go/tools", ToolPaths: []*deptfile.Tool{{Path: "/cmd/unused"}, {Path: "/cmd/statickcheck"}}},
+						{Path: "honnef.co/go/tools", ToolPaths: []*deptfile.Tool{{Path: "/cmd/unused"}, {Path: "/cmd/staticcheck"}}},
 					},
 				})
 			},
@@ -64,7 +64,7 @@ func TestListRun(t *testing.T) {
 				args: []string{"honnef.co/go/tools"},
 				expected: []string{
 					"honnef.co/go/tools/cmd/unused",
-					"honnef.co/go/tools/cmd/statickcheck",
+					"honnef.co/go/tools/cmd/staticcheck",
 				},
 			},
 		}
@@ -81,6 +81,58 @@ func TestListRun(t *testing.T) {
 				actual := strings.Split(strings.TrimSpace(mockUI.Writer().String()), "\n")
 				if len(c.expected) != len(actual) {
 					t.Errorf("expected: %s, but got %s", c.expected, actual)
+				}
+			})
+		}
+	})
+
+	t.Run("Run shows tools with -f based format", func(t *testing.T) {
+		mockWorkspace := &deptfile.WorkspacerMock{
+			DoFunc: func(f func(projectDir string, gomod *deptfile.File) error) error {
+				return f("", &deptfile.File{
+					Require: []*deptfile.Require{
+						{Path: "github.com/ktr0731/evans", ToolPaths: []*deptfile.Tool{{Path: "/"}}},
+						{Path: "github.com/ktr0731/itunes-cli", ToolPaths: []*deptfile.Tool{{Path: "/itunes", Name: "it"}}},
+						{Path: "honnef.co/go/tools", ToolPaths: []*deptfile.Tool{{Path: "/cmd/unused"}, {Path: "/cmd/staticcheck"}}},
+					},
+				})
+			},
+		}
+
+		cases := map[string]struct {
+			args     []string
+			expected []string
+			hasErr   bool
+		}{
+			"{{.Name}}": {
+				args:     []string{"-f", "{{.Name}}"},
+				expected: []string{"evans", "it", "unused", "staticcheck"},
+			},
+			"invalid format": {
+				args:   []string{"-f", "{{"},
+				hasErr: true,
+			},
+		}
+		for name, c := range cases {
+			t.Run(name, func(t *testing.T) {
+				mockUI := newMockUI()
+				cmd := cmd.NewList(mockUI, mockWorkspace)
+
+				code := cmd.Run(c.args)
+				if c.hasErr {
+					if code == 0 {
+						t.Error("Run must return 1, but got 0")
+					}
+					return
+				}
+				if code != 0 {
+					t.Fatalf("Run must return 0, but got %d", code)
+				}
+
+				actual := mockUI.Writer().String()
+				expected := strings.Join(c.expected, "\n") + "\n"
+				if expected != actual {
+					t.Errorf("expected: %s, but got %s", expected, actual)
 				}
 			})
 		}

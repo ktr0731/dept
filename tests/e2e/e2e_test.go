@@ -74,10 +74,10 @@ func TestGet(t *testing.T) {
 		},
 		{
 			name: "list tools",
-			args: []string{"list"},
+			args: []string{"list", "-f", "{{.Path}}", "github.com/ktr0731/salias"},
 			assert: func(t *testing.T, out, eout *bytes.Buffer) {
-				if !strings.Contains(out.String(), "github.com/ktr0731/salias") {
-					t.Errorf("list must be list up 'github.com/ktr0731/salias', but missing:\n%s", out.String())
+				if s := strings.TrimSpace(out.String()); s != "github.com/ktr0731/salias" {
+					t.Errorf("list must be list up 'github.com/ktr0731/salias', but missing:\n%s", s)
 				}
 			},
 		},

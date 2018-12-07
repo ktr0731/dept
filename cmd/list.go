@@ -1,16 +1,37 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"flag"
 	"fmt"
-	"strings"
+	"path/filepath"
+	"text/template"
 
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/mitchellh/cli"
+	"github.com/pkg/errors"
 )
 
-// listCommand list ups managed dependencies.
+type listFlagSet struct {
+	*flag.FlagSet
+
+	format string
+}
+
+func newListFlagSet() *listFlagSet {
+	lf := &listFlagSet{FlagSet: flag.NewFlagSet("list", flag.ExitOnError)}
+	lf.StringVar(&lf.format, "f", "{{.Path}} {{.Name}} {{.Version}}", "output format")
+	return lf
+}
+
+type listItem struct {
+	Path, Name, Version string
+}
+
+// listCommand lists up managed dependencies.
 type listCommand struct {
+	f         *listFlagSet
 	ui        cli.Ui
 	workspace deptfile.Workspacer
 }
@@ -19,29 +40,53 @@ func (c *listCommand) UI() cli.Ui {
 	return c.ui
 }
 
+var listHelpTmpl = `Usage: dept list <path [path ...]>
+
+list lists up tool information with some attributes.
+-f formats output based on the passed format string.
+Each item is represents as the following structure.
+
+type listItem struct {
+	Path, Name, Version string
+}
+
+%s`
+
 func (c *listCommand) Help() string {
-	return fmt.Sprintf("Usage: dept list <path [path ...]>")
+	return fmt.Sprintf(listHelpTmpl, FlagUsage(c.f.FlagSet, false))
 }
 
 func (c *listCommand) Synopsis() string {
-	return fmt.Sprintf("List ups all tools based on %s", deptfile.FileName)
+	return fmt.Sprintf("Lists up all tools based on %s", deptfile.FileName)
 }
 
 func (c *listCommand) Run(args []string) int {
+	if err := c.f.Parse(args); err != nil {
+		c.UI().Error(err.Error())
+		return 1
+	}
+
+	args = c.f.Args()
+
 	passed := map[string]interface{}{}
 	for _, arg := range args {
 		passed[arg] = nil
 	}
 	listAll := len(passed) == 0
+	tmpl := `{{range .}}` + c.f.format + `{{"\n"}}{{end}}`
 	return run(c, func(context.Context) error {
-		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
-			requires := make([]string, 0, len(df.Require))
+		t, err := template.New("list").Parse(tmpl)
+		if err != nil {
+			return errors.Wrapf(err, "failed to parse -f value '%s'", c.f.format)
+		}
+		err = c.workspace.Do(func(projRoot string, df *deptfile.File) error {
+			requires := make([]*listItem, 0, len(df.Require))
 			for _, r := range df.Require {
 				if !listAll {
 					// If module roots passed, filter by that modules.
 					if _, found := passed[r.Path]; found {
-						forTools(r, func(path string) bool {
-							requires = append(requires, fmt.Sprintf("%s %s", path, r.Version))
+						forToolsWithOutputName(r, func(path, out string) bool {
+							requires = appendListItem(requires, path, out, r.Version)
 							return true
 						})
 						continue
@@ -50,21 +95,36 @@ func (c *listCommand) Run(args []string) int {
 					// If module roots not found, step into each tool.
 				}
 
-				forTools(r, func(path string) bool {
+				forToolsWithOutputName(r, func(path, out string) bool {
 					if listAll {
-						requires = append(requires, fmt.Sprintf("%s %s", path, r.Version))
+						requires = appendListItem(requires, path, out, r.Version)
 					} else if _, found := passed[path]; found {
-						requires = append(requires, fmt.Sprintf("%s %s", path, r.Version))
+						requires = appendListItem(requires, path, out, r.Version)
 					}
 					return true
 				})
 			}
 
-			c.ui.Output(strings.Join(requires, "\n"))
+			var buf bytes.Buffer
+			if err := t.Execute(&buf, requires); err != nil {
+				return err
+			}
+			if buf.Len() > 0 {
+				// Trim last '\n'
+				c.ui.Output(buf.String()[:buf.Len()-1])
+			}
 			return nil
 		})
 		return err
 	})
+}
+
+func appendListItem(requires []*listItem, path, out, version string) []*listItem {
+	i := &listItem{Path: path, Name: out, Version: version}
+	if out == "" {
+		i.Name = filepath.Base(path)
+	}
+	return append(requires, i)
 }
 
 // NewList returns an initialized listCommand instance.
@@ -73,6 +133,7 @@ func NewList(
 	workspace deptfile.Workspacer,
 ) cli.Command {
 	return &listCommand{
+		f:         newListFlagSet(),
 		ui:        ui,
 		workspace: workspace,
 	}
