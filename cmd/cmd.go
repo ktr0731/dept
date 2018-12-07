@@ -129,7 +129,11 @@ func forTools(r *deptfile.Require, f func(path string) bool) {
 }
 
 // forToolsWithOutputName is like forTools, but also pass outputName of each tool.
+// If out is empty, it means out is the same as filepath.Base(path).
 func forToolsWithOutputName(r *deptfile.Require, f func(path, outputName string) bool) {
+	if r == nil {
+		return
+	}
 	for _, t := range r.ToolPaths {
 		p := r.Path
 		if t.Path != "/" {

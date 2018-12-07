@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -14,7 +13,9 @@ import (
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/gocmd"
 	"github.com/ktr0731/dept/logger"
+	"github.com/ktr0731/dept/toolcacher"
 	"github.com/mitchellh/cli"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -46,6 +47,12 @@ func Run(args []string) (int, error) {
 		}()
 	}
 
+	gocmd := gocmd.New()
+	toolcacher, err := toolcacher.New(gocmd)
+	if err != nil {
+		return 1, errors.Wrap(err, "failed to instantiate toolcacher")
+	}
+
 	app := cli.NewCLI(appName, appVersion)
 
 	app.Commands = map[string]cli.CommandFactory{
@@ -55,21 +62,21 @@ func Run(args []string) (int, error) {
 		"get": func() (cli.Command, error) {
 			return cmd.NewGet(
 				newUI(),
-				gocmd.New(),
+				gocmd,
 				&deptfile.Workspace{},
 			), nil
 		},
 		"remove": func() (cli.Command, error) {
 			return cmd.NewRemove(
 				newUI(),
-				gocmd.New(),
+				gocmd,
 				&deptfile.Workspace{},
 			), nil
 		},
 		"build": func() (cli.Command, error) {
 			return cmd.NewBuild(
 				newUI(),
-				gocmd.New(),
+				gocmd,
 				&deptfile.Workspace{},
 			), nil
 		},
@@ -77,6 +84,13 @@ func Run(args []string) (int, error) {
 			return cmd.NewList(
 				newUI(),
 				&deptfile.Workspace{},
+			), nil
+		},
+		"exec": func() (cli.Command, error) {
+			return cmd.NewExec(
+				newUI(),
+				&deptfile.Workspace{},
+				toolcacher,
 			), nil
 		},
 	}

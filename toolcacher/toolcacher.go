@@ -1,3 +1,5 @@
+//go:generate moq -out mock_gen.go . Cacher
+
 package toolcacher
 
 import (
