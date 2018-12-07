@@ -11,6 +11,7 @@ import (
 
 var (
 	lockCommandMockBuild       sync.RWMutex
+	lockCommandMockEnv         sync.RWMutex
 	lockCommandMockGet         sync.RWMutex
 	lockCommandMockList        sync.RWMutex
 	lockCommandMockModDownload sync.RWMutex
@@ -25,6 +26,9 @@ var (
 //         mockedCommand := &CommandMock{
 //             BuildFunc: func(ctx context.Context, args ...string) error {
 // 	               panic("mock out the Build method")
+//             },
+//             EnvFunc: func(ctx context.Context, args ...string) (io.Reader, error) {
+// 	               panic("mock out the Env method")
 //             },
 //             GetFunc: func(ctx context.Context, args ...string) error {
 // 	               panic("mock out the Get method")
@@ -48,6 +52,9 @@ type CommandMock struct {
 	// BuildFunc mocks the Build method.
 	BuildFunc func(ctx context.Context, args ...string) error
 
+	// EnvFunc mocks the Env method.
+	EnvFunc func(ctx context.Context, args ...string) (io.Reader, error)
+
 	// GetFunc mocks the Get method.
 	GetFunc func(ctx context.Context, args ...string) error
 
@@ -64,6 +71,13 @@ type CommandMock struct {
 	calls struct {
 		// Build holds details about calls to the Build method.
 		Build []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+			// Args is the args argument value.
+			Args []string
+		}
+		// Env holds details about calls to the Env method.
+		Env []struct {
 			// Ctx is the ctx argument value.
 			Ctx context.Context
 			// Args is the args argument value.
@@ -128,6 +142,41 @@ func (mock *CommandMock) BuildCalls() []struct {
 	lockCommandMockBuild.RLock()
 	calls = mock.calls.Build
 	lockCommandMockBuild.RUnlock()
+	return calls
+}
+
+// Env calls EnvFunc.
+func (mock *CommandMock) Env(ctx context.Context, args ...string) (io.Reader, error) {
+	if mock.EnvFunc == nil {
+		panic("CommandMock.EnvFunc: method is nil but Command.Env was just called")
+	}
+	callInfo := struct {
+		Ctx  context.Context
+		Args []string
+	}{
+		Ctx:  ctx,
+		Args: args,
+	}
+	lockCommandMockEnv.Lock()
+	mock.calls.Env = append(mock.calls.Env, callInfo)
+	lockCommandMockEnv.Unlock()
+	return mock.EnvFunc(ctx, args...)
+}
+
+// EnvCalls gets all the calls that were made to Env.
+// Check the length with:
+//     len(mockedCommand.EnvCalls())
+func (mock *CommandMock) EnvCalls() []struct {
+	Ctx  context.Context
+	Args []string
+} {
+	var calls []struct {
+		Ctx  context.Context
+		Args []string
+	}
+	lockCommandMockEnv.RLock()
+	calls = mock.calls.Env
+	lockCommandMockEnv.RUnlock()
 	return calls
 }
 
