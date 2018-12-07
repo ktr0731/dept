@@ -77,7 +77,6 @@ func (c *execCommand) Run([]string) int {
 		})
 		return err
 	})
-	return 0
 }
 
 // NewExec returns an initialized execCommand instance.

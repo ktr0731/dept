@@ -50,7 +50,9 @@ func New(gocmd gocmd.Command) (Cacher, error) {
 	gopath := strings.TrimSpace(string(b))
 	rootPath := filepath.Join(gopath, "pkg", "dept")
 	if _, err := os.Stat(rootPath); os.IsNotExist(err) {
-		os.MkdirAll(rootPath, 0755)
+		if err := os.MkdirAll(rootPath, 0755); err != nil {
+			return nil, errors.Wrap(err, "failed to create a cache dir")
+		}
 	}
 	return &cacher{
 		gocmd:    gocmd,
