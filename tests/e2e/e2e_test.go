@@ -299,7 +299,7 @@ func do(t *testing.T, c testcase) {
 	defer cleanup()
 
 	if c.args[0] == "exec" {
-		cleanup := cmd.ChangeSyscallExec(out, eout)
+		cleanup := cmd.ChangeSyscallExecE2E(out, eout)
 		defer cleanup()
 	}
 
