@@ -86,12 +86,13 @@ func Run(args []string) (int, error) {
 				&deptfile.Workspace{},
 			), nil
 		},
+		// exec is a special command.
+		// In mitchellh/cli, '-h' will be parsed in any positions.
+		// However, with exec command, '-h' may be passed as a flag of the target tool.
+		// Therefore, we don't use mitchellh/cli's flag parsing mechanism under the special condition.
+		// Please see the below codition for more details.
 		"exec": func() (cli.Command, error) {
-			return cmd.NewExec(
-				newUI(),
-				&deptfile.Workspace{},
-				toolcacher,
-			), nil
+			return cmd.NewExec(nil, nil, nil, nil), nil
 		},
 	}
 
@@ -123,6 +124,27 @@ func Run(args []string) (int, error) {
 	}
 
 	app.Args = f.Args()
+
+	// exec command special case.
+	if f.Arg(0) == "exec" {
+		// If first arg starts with '-', it is a flag of exec command.
+		// Currently, exec has no flags other than '--version' and '--help'.
+		// So, we ignore it and mitchellh/cli parses these args.
+		if !strings.HasPrefix(f.Arg(1), "-") {
+			// If there are no flags, it means the rest of args is
+			// target tool's args.
+			app.Args = []string{"exec"}
+		}
+		app.Commands["exec"] = func() (cli.Command, error) {
+			return cmd.NewExec(
+				f.Args()[1:],
+				newUI(),
+				&deptfile.Workspace{},
+				toolcacher,
+			), nil
+		}
+	}
+
 	return app.Run()
 }
 

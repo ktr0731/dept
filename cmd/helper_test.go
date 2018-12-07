@@ -13,7 +13,7 @@ func NormalizePath(path string) (repo, ver string, err error) {
 	return normalizePath(path)
 }
 
-func ChnageSyscallExec(f func(argv0 string, argv []string, envv []string) (err error)) func() {
+func ChangeSyscallExec(f func(argv0 string, argv []string, envv []string) (err error)) func() {
 	syscallExec = f
 	return func() {
 		syscallExec = syscall.Exec

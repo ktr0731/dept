@@ -12,7 +12,7 @@ import (
 func TestExecRun(t *testing.T) {
 	t.Run("Run returns code 1 because no arguments passed", func(t *testing.T) {
 		mockUI := newMockUI()
-		cmd := cmd.NewExec(mockUI, nil, nil)
+		cmd := cmd.NewExec(nil, mockUI, nil, nil)
 
 		code := cmd.Run(nil)
 		if code != 1 {
@@ -54,9 +54,9 @@ func TestExecRun(t *testing.T) {
 						return f("", df)
 					},
 				}
-				cmd := cmd.NewExec(mockUI, mockWorkspace, nil)
+				cmd := cmd.NewExec([]string{"salias"}, mockUI, mockWorkspace, nil)
 
-				code := cmd.Run([]string{"salias"})
+				code := cmd.Run(nil)
 				if code != 1 {
 					t.Errorf("Run must return 1, but got %d", code)
 				}
@@ -120,14 +120,14 @@ func TestExecRun(t *testing.T) {
 						return "", nil
 					},
 				}
-				cleanup := cmd.ChnageSyscallExec(func(argv0 string, argv []string, envv []string) (err error) {
+				cleanup := cmd.ChangeSyscallExec(func(argv0 string, argv []string, envv []string) (err error) {
 					return nil
 				})
 				defer cleanup()
 
-				cmd := cmd.NewExec(mockUI, mockWorkspace, mockToolcacher)
+				cmd := cmd.NewExec([]string{"salias"}, mockUI, mockWorkspace, mockToolcacher)
 
-				code := cmd.Run([]string{"salias"})
+				code := cmd.Run(nil)
 				if code != 0 {
 					t.Errorf("Run must return 0, but got %d (err = %s)", code, mockUI.ErrorWriter().String())
 				}
