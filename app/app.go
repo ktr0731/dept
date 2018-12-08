@@ -78,6 +78,7 @@ func Run(args []string) (int, error) {
 				newUI(),
 				gocmd,
 				&deptfile.Workspace{},
+				toolcacher,
 			), nil
 		},
 		"list": func() (cli.Command, error) {

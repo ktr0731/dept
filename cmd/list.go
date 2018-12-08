@@ -25,10 +25,6 @@ func newListFlagSet() *listFlagSet {
 	return lf
 }
 
-type listItem struct {
-	Path, Name, Version string
-}
-
 // listCommand lists up managed dependencies.
 type listCommand struct {
 	f         *listFlagSet
@@ -46,7 +42,7 @@ list lists up tool information with some attributes.
 -f formats output based on the passed format string.
 Each item is represents as the following structure.
 
-type listItem struct {
+type tool struct {
 	Path, Name, Version string
 }
 
@@ -80,7 +76,7 @@ func (c *listCommand) Run(args []string) int {
 			return errors.Wrapf(err, "failed to parse -f value '%s'", c.f.format)
 		}
 		err = c.workspace.Do(func(projRoot string, df *deptfile.File) error {
-			requires := make([]*listItem, 0, len(df.Require))
+			requires := make([]*tool, 0, len(df.Require))
 			for _, r := range df.Require {
 				if !listAll {
 					// If module roots passed, filter by that modules.
@@ -119,12 +115,12 @@ func (c *listCommand) Run(args []string) int {
 	})
 }
 
-func appendListItem(requires []*listItem, path, out, version string) []*listItem {
-	i := &listItem{Path: path, Name: out, Version: version}
+func appendListItem(requires []*tool, path, out, version string) []*tool {
+	t := &tool{Path: path, Name: out, Version: version}
 	if out == "" {
-		i.Name = filepath.Base(path)
+		t.Name = filepath.Base(path)
 	}
-	return append(requires, i)
+	return append(requires, t)
 }
 
 // NewList returns an initialized listCommand instance.

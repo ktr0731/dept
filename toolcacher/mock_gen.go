@@ -9,9 +9,7 @@ import (
 )
 
 var (
-	lockCacherMockFind sync.RWMutex
-	lockCacherMockGet  sync.RWMutex
-	lockCacherMockPut  sync.RWMutex
+	lockCacherMockGet sync.RWMutex
 )
 
 // CacherMock is a mock implementation of Cacher.
@@ -20,14 +18,8 @@ var (
 //
 //         // make and configure a mocked Cacher
 //         mockedCacher := &CacherMock{
-//             FindFunc: func(pkgName string, version string) (string, error) {
-// 	               panic("mock out the Find method")
-//             },
 //             GetFunc: func(ctx context.Context, pkgName string, version string) (string, error) {
 // 	               panic("mock out the Get method")
-//             },
-//             PutFunc: func(originalPath string, pkgName string, version string) (string, error) {
-// 	               panic("mock out the Put method")
 //             },
 //         }
 //
@@ -36,24 +28,11 @@ var (
 //
 //     }
 type CacherMock struct {
-	// FindFunc mocks the Find method.
-	FindFunc func(pkgName string, version string) (string, error)
-
 	// GetFunc mocks the Get method.
 	GetFunc func(ctx context.Context, pkgName string, version string) (string, error)
 
-	// PutFunc mocks the Put method.
-	PutFunc func(originalPath string, pkgName string, version string) (string, error)
-
 	// calls tracks calls to the methods.
 	calls struct {
-		// Find holds details about calls to the Find method.
-		Find []struct {
-			// PkgName is the pkgName argument value.
-			PkgName string
-			// Version is the version argument value.
-			Version string
-		}
 		// Get holds details about calls to the Get method.
 		Get []struct {
 			// Ctx is the ctx argument value.
@@ -63,51 +42,7 @@ type CacherMock struct {
 			// Version is the version argument value.
 			Version string
 		}
-		// Put holds details about calls to the Put method.
-		Put []struct {
-			// OriginalPath is the originalPath argument value.
-			OriginalPath string
-			// PkgName is the pkgName argument value.
-			PkgName string
-			// Version is the version argument value.
-			Version string
-		}
 	}
-}
-
-// Find calls FindFunc.
-func (mock *CacherMock) Find(pkgName string, version string) (string, error) {
-	if mock.FindFunc == nil {
-		panic("CacherMock.FindFunc: method is nil but Cacher.Find was just called")
-	}
-	callInfo := struct {
-		PkgName string
-		Version string
-	}{
-		PkgName: pkgName,
-		Version: version,
-	}
-	lockCacherMockFind.Lock()
-	mock.calls.Find = append(mock.calls.Find, callInfo)
-	lockCacherMockFind.Unlock()
-	return mock.FindFunc(pkgName, version)
-}
-
-// FindCalls gets all the calls that were made to Find.
-// Check the length with:
-//     len(mockedCacher.FindCalls())
-func (mock *CacherMock) FindCalls() []struct {
-	PkgName string
-	Version string
-} {
-	var calls []struct {
-		PkgName string
-		Version string
-	}
-	lockCacherMockFind.RLock()
-	calls = mock.calls.Find
-	lockCacherMockFind.RUnlock()
-	return calls
 }
 
 // Get calls GetFunc.
@@ -146,44 +81,5 @@ func (mock *CacherMock) GetCalls() []struct {
 	lockCacherMockGet.RLock()
 	calls = mock.calls.Get
 	lockCacherMockGet.RUnlock()
-	return calls
-}
-
-// Put calls PutFunc.
-func (mock *CacherMock) Put(originalPath string, pkgName string, version string) (string, error) {
-	if mock.PutFunc == nil {
-		panic("CacherMock.PutFunc: method is nil but Cacher.Put was just called")
-	}
-	callInfo := struct {
-		OriginalPath string
-		PkgName      string
-		Version      string
-	}{
-		OriginalPath: originalPath,
-		PkgName:      pkgName,
-		Version:      version,
-	}
-	lockCacherMockPut.Lock()
-	mock.calls.Put = append(mock.calls.Put, callInfo)
-	lockCacherMockPut.Unlock()
-	return mock.PutFunc(originalPath, pkgName, version)
-}
-
-// PutCalls gets all the calls that were made to Put.
-// Check the length with:
-//     len(mockedCacher.PutCalls())
-func (mock *CacherMock) PutCalls() []struct {
-	OriginalPath string
-	PkgName      string
-	Version      string
-} {
-	var calls []struct {
-		OriginalPath string
-		PkgName      string
-		Version      string
-	}
-	lockCacherMockPut.RLock()
-	calls = mock.calls.Put
-	lockCacherMockPut.RUnlock()
 	return calls
 }

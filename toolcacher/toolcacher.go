@@ -9,33 +9,27 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
-	"github.com/ktr0731/dept/fileutil"
 	"github.com/ktr0731/dept/gocmd"
 	"github.com/ktr0731/dept/logger"
 	"github.com/pkg/errors"
 )
 
 var (
-	ErrCacheMiss = errors.New("specified tool is not found")
-	ErrNotFound  = errors.New("original tool path is not found")
+	errCacheMiss = errors.New("specified tool is not found")
 )
 
 type Cacher interface {
-	// Find finds a cached tool path which satisfies the passed pkgName and version.
-	// If it is not cached, FindTool returns ErrCacheMiss.
-	Find(pkgName, version string) (path string, err error)
 	// Get finds a cached tool path which satisfies the passed pkgName and version.
 	// If it is not cached, Get builds a new one.
 	Get(ctx context.Context, pkgName, version string) (path string, err error)
-	// Put puts a built binary to a cache storage.
-	// The cached binary can be extract by Find(pkgName, version) or the returned path.
-	Put(originalPath, pkgName, version string) (path string, err error)
 }
 
 type cacher struct {
-	gocmd    gocmd.Command
-	rootPath string
+	gocmd        gocmd.Command
+	rootPath     string
+	downloadOnce sync.Once
 }
 
 func New(gocmd gocmd.Command) (Cacher, error) {
@@ -60,14 +54,10 @@ func New(gocmd gocmd.Command) (Cacher, error) {
 	}, nil
 }
 
-func (c *cacher) Find(pkgName, version string) (string, error) {
-	return c.find(c.cachePath(pkgName, version))
-}
-
 func (c *cacher) find(key string) (string, error) {
 	_, err := os.Stat(key)
 	if os.IsNotExist(err) {
-		return "", ErrCacheMiss
+		return "", errCacheMiss
 	}
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get tool binary info")
@@ -83,22 +73,26 @@ func (c *cacher) Get(ctx context.Context, pkgName, version string) (string, erro
 		return cachePath, nil
 	}
 
-	if err == ErrCacheMiss {
+	if err == errCacheMiss {
 		logger.Printf("cache passed tool: %s %s", outPath, pkgName)
+
+		var err error
+		c.downloadOnce.Do(func() {
+			logger.Println("downloading modules")
+			if err = c.gocmd.ModDownload(ctx); err != nil {
+				err = errors.Wrap(err, "failed to download module dependencies")
+			}
+		})
+		if err != nil {
+			return "", err
+		}
+
 		if err := c.gocmd.Build(ctx, "-o", outPath, pkgName); err != nil {
 			return "", errors.Wrapf(err, "failed to cache tool %s to %s", pkgName, outPath)
 		}
 		return outPath, nil
 	}
 	return "", errors.Wrap(err, "failed to find the passed tool")
-}
-
-func (c *cacher) Put(path, pkgName, version string) (string, error) {
-	cachePath := c.cachePath(pkgName, version)
-	if err := fileutil.Copy(cachePath, path); err != nil {
-		return "", errors.Wrapf(err, "failed to copy %s to %s", path, cachePath)
-	}
-	return cachePath, nil
 }
 
 func (c *cacher) cachePath(pkgName, version string) string {

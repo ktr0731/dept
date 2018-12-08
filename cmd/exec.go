@@ -49,6 +49,7 @@ func (c *execCommand) Run([]string) int {
 		toolName := args[0]
 
 		var toolPkgName, toolVersion string
+		var cachePath string
 		err := c.workspace.Do(func(projRoot string, df *deptfile.File) error {
 			for _, r := range df.Require {
 				forToolsWithOutputName(r, func(path, outputName string) bool {
@@ -64,17 +65,20 @@ func (c *execCommand) Run([]string) int {
 				return errors.Errorf(`command '%s' is not in %s (available tools can be see 'dept list -f "{{ .Name }}"')`, toolName, deptfile.FileName)
 			}
 
-			cachePath, err := c.toolcacher.Get(ctx, toolPkgName, toolVersion)
+			var err error
+			cachePath, err = c.toolcacher.Get(ctx, toolPkgName, toolVersion)
 			if err != nil {
 				return errors.Wrap(err, "failed to get a cached tool path")
 			}
-
-			err = syscallExec(cachePath, append([]string{toolName}, args[1:]...), os.Environ())
-			if err != nil {
-				return errors.Wrapf(err, "failed to execute the specified tool: %s", strings.Join(append([]string{toolName}, args[1:]...), " "))
-			}
 			return nil
 		})
+		if err != nil {
+			return err
+		}
+		err = syscallExec(cachePath, append([]string{toolName}, args[1:]...), os.Environ())
+		if err != nil {
+			return errors.Wrapf(err, "failed to execute the specified tool: %s", strings.Join(append([]string{toolName}, args[1:]...), " "))
+		}
 		return err
 	})
 }

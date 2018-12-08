@@ -2,6 +2,8 @@ package cmd_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/ktr0731/dept/cmd"
@@ -120,6 +122,7 @@ func TestExecRun(t *testing.T) {
 						return "", nil
 					},
 				}
+
 				cleanup := cmd.ChangeSyscallExec(func(argv0 string, argv []string, envv []string) (err error) {
 					return nil
 				})
@@ -134,4 +137,42 @@ func TestExecRun(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("syscall.Exec must be called in first working dir", func(t *testing.T) {
+		mockUI := newMockUI()
+		cwd1 := filepath.Join(getWorkDir(t), "testdata")
+		workspace := &deptfile.Workspace{
+			SourcePath: cwd1,
+		}
+		mockToolcacher := &toolcacher.CacherMock{
+			GetFunc: func(ctx context.Context, pkgName string, version string) (string, error) {
+				return "", nil
+			},
+		}
+
+		cleanup := cmd.ChangeSyscallExec(func(argv0 string, argv []string, envv []string) (err error) {
+			cwd2 := getWorkDir(t)
+			if cwd1 != cwd2 {
+				t.Errorf("syscall.Exec must be call in %s, but called in %s", cwd1, cwd2)
+			}
+			return nil
+		})
+		defer cleanup()
+
+		cmd := cmd.NewExec([]string{"salias"}, mockUI, workspace, mockToolcacher)
+
+		code := cmd.Run(nil)
+		if code != 0 {
+			t.Fatalf("Run must return 0, but got %d (err = %s)", code, mockUI.ErrorWriter().String())
+		}
+	})
+}
+
+func getWorkDir(t *testing.T) string {
+	t.Helper()
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get the current dir: %s", err)
+	}
+	return cwd
 }

@@ -3,6 +3,7 @@ package toolcacher_test
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -26,11 +27,18 @@ func setup(t *testing.T) (toolcacher.Cacher, *gocmd.CommandMock, func()) {
 		BuildFunc: func(ctx context.Context, args ...string) error {
 			return nil
 		},
+		ModDownloadFunc: func(ctx context.Context) error {
+			return nil
+		},
 	}
 
 	tc, err := toolcacher.New(gocmd)
 	if err != nil {
 		t.Fatalf("failed to instantiate a toolcacher: %s", err)
+	}
+
+	if n := len(gocmd.EnvCalls()); n != 1 {
+		t.Fatalf("Env must be called once, but actual %d times called", n)
 	}
 
 	return tc, gocmd, func() {
@@ -39,51 +47,6 @@ func setup(t *testing.T) (toolcacher.Cacher, *gocmd.CommandMock, func()) {
 }
 
 func TestCacher(t *testing.T) {
-	t.Run("Find must return ErrCacheMiss because foo is not found", func(t *testing.T) {
-		tc, gocmd, cleanup := setup(t)
-		defer cleanup()
-
-		_, err := tc.Find("foo", "v0.1.0")
-		if err != toolcacher.ErrCacheMiss {
-			t.Fatalf("Find must return ErrCacheMiss, but got %s", err)
-		}
-
-		if n := len(gocmd.EnvCalls()); n != 1 {
-			t.Errorf("'go env' must be call once to get $GOPATH, but actual %d times called", n)
-		}
-	})
-
-	t.Run("Find must not return any errors because tool was cached", func(t *testing.T) {
-		tc, gocmd, cleanup := setup(t)
-		defer cleanup()
-
-		f, err := ioutil.TempFile("", "")
-		if err != nil {
-			t.Fatalf("failed to create a temp file")
-		}
-		defer f.Close()
-
-		pkgName := "github.com/hoge/fuga/foo"
-		version := "v0.1.0"
-		cachePath, err := tc.Put(f.Name(), pkgName, version)
-		if err != nil {
-			t.Fatalf("Put must not return any errors, but got %s", err)
-		}
-
-		cachePath2, err := tc.Find(pkgName, version)
-		if err != nil {
-			t.Fatalf("Find must not return any errors, but got %s", err)
-		}
-
-		if cachePath != cachePath2 {
-			t.Errorf("the path which Put returned and the path which Get returned must be equal, but actual '%s' and '%s'", cachePath, cachePath2)
-		}
-
-		if n := len(gocmd.EnvCalls()); n != 1 {
-			t.Errorf("'go env' must be call once to get $GOPATH, but actual %d times called", n)
-		}
-	})
-
 	t.Run("Get builds a new tool for caching", func(t *testing.T) {
 		tc, gocmd, cleanup := setup(t)
 		defer cleanup()
@@ -92,13 +55,16 @@ func TestCacher(t *testing.T) {
 		version := "v0.1.0"
 		cachePath, err := tc.Get(context.Background(), pkgName, version)
 		if err != nil {
-			t.Fatalf("Get must not return any errors, but got %s", err)
+			t.Fatalf("Get must not return any errors, but got '%s'", err)
 		}
 
 		// Create a file which is used as a pseudo binary file.
 		// Next Get call will checks it to determine build a new binary or not.
 		if n := len(gocmd.BuildCalls()); n != 1 {
 			t.Errorf("'go build' must be call once to build the passed tool, but actual %d times called", n)
+		}
+		if n := len(gocmd.ModDownloadCalls()); n != 1 {
+			t.Errorf("'go mod download' must be called once in a single execution, but actual %d times called", n)
 		}
 		fs := flag.NewFlagSet("test", flag.ExitOnError)
 		outputPath := fs.String("o", "", "")
@@ -117,9 +83,36 @@ func TestCacher(t *testing.T) {
 		if n := len(gocmd.BuildCalls()); n != 1 {
 			t.Errorf("'go build' must not be call again, but %d times called", n)
 		}
+		if n := len(gocmd.ModDownloadCalls()); n != 1 {
+			t.Errorf("'go mod download' must be called once in a single execution, but actual %d times called", n)
+		}
 
 		if cachePath != cachePath2 {
 			t.Errorf("Two returned paths must be equal, but actual '%s' and '%s'", cachePath, cachePath2)
+		}
+	})
+
+	t.Run("Get will panic", func(t *testing.T) {
+		tc, _, cleanup := setup(t)
+		defer cleanup()
+
+		cases := []struct {
+			pkgName, version string
+		}{
+			{"foo", ""},
+			{"", "v0.1.0"},
+			{"", ""},
+		}
+		for _, c := range cases {
+			t.Run(fmt.Sprintf("%s@%s", c.pkgName, c.version), func(t *testing.T) {
+				defer func() {
+					if err := recover(); err == nil {
+						t.Error("Get must panic if pkgName or version is empty, but got nil")
+					}
+				}()
+
+				_, _ = tc.Get(context.Background(), "", "")
+			})
 		}
 	})
 }

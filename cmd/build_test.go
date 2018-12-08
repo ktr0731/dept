@@ -2,13 +2,15 @@ package cmd_test
 
 import (
 	"context"
-	"path/filepath"
+	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/ktr0731/dept/cmd"
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/gocmd"
+	"github.com/ktr0731/dept/toolcacher"
 )
 
 func TestBuildRun(t *testing.T) {
@@ -20,7 +22,7 @@ func TestBuildRun(t *testing.T) {
 			},
 		}
 
-		cmd := cmd.NewBuild(mockUI, nil, mockWorkspace)
+		cmd := cmd.NewBuild(mockUI, nil, mockWorkspace, nil)
 
 		code := cmd.Run(nil)
 
@@ -38,7 +40,6 @@ func TestBuildRun(t *testing.T) {
 	t.Run("Run returns code 0 normally", func(t *testing.T) {
 		cases := map[string]struct {
 			loadedTools []*deptfile.Require
-			assert      func(t *testing.T, args []string)
 		}{
 			"build two tools": {
 				loadedTools: []*deptfile.Require{
@@ -50,21 +51,29 @@ func TestBuildRun(t *testing.T) {
 				loadedTools: []*deptfile.Require{
 					{Path: "github.com/ktr0731/itunes-cli", ToolPaths: []*deptfile.Tool{{Path: "/itunes", Name: "it"}}},
 				},
-				assert: func(t *testing.T, args []string) {
-					if n := filepath.Base(args[1]); n != "it" {
-						t.Errorf("output name must be 'it', but actual '%s'", n)
-					}
-				},
 			},
+		}
+
+		setup := func(t *testing.T) func() {
+			dir, err := ioutil.TempDir("", "")
+			if err != nil {
+				t.Fatalf("failed to create a temp dir: %s", err)
+			}
+			old := os.Getenv("GOBIN")
+			os.Setenv("GOBIN", dir)
+			return func() {
+				os.Setenv("GOBIN", old)
+				os.RemoveAll(dir)
+			}
 		}
 
 		for name, c := range cases {
 			t.Run(name, func(t *testing.T) {
+				cleanup := setup(t)
+				defer cleanup()
+
 				mockUI := newMockUI()
 				mockGoCMD := &gocmd.CommandMock{
-					BuildFunc: func(ctx context.Context, pkgs ...string) error {
-						return nil
-					},
 					ModDownloadFunc: func(ctx context.Context) error { return nil },
 				}
 				mockWorkspace := &deptfile.WorkspacerMock{
@@ -73,20 +82,26 @@ func TestBuildRun(t *testing.T) {
 						return f("", df)
 					},
 				}
-				cmd := cmd.NewBuild(mockUI, mockGoCMD, mockWorkspace)
+
+				f, err := ioutil.TempFile("", "")
+				if err != nil {
+					t.Fatal(err, "failed to create a temp file")
+				}
+				defer f.Close()
+				mockToolCacher := &toolcacher.CacherMock{
+					GetFunc: func(ctx context.Context, pkgName string, version string) (string, error) {
+						return f.Name(), nil
+					},
+				}
+				cmd := cmd.NewBuild(mockUI, mockGoCMD, mockWorkspace, mockToolCacher)
 
 				code := cmd.Run(nil)
 				if code != 0 {
 					t.Errorf("Run must return 0, but got %d (err = %s)", code, mockUI.ErrorWriter().String())
 				}
 
-				if n := len(mockGoCMD.BuildCalls()); n != len(c.loadedTools) {
-					t.Errorf("Build must be called %d times, but actual %d", len(c.loadedTools), n)
-				}
-
-				if c.assert != nil {
-					buildArgs := mockGoCMD.BuildCalls()[0].Args
-					c.assert(t, buildArgs)
+				if n := len(mockToolCacher.GetCalls()); n != len(c.loadedTools) {
+					t.Errorf("Get must be called %d times, but actual %d", len(c.loadedTools), n)
 				}
 			})
 		}
