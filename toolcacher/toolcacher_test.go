@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -113,6 +114,25 @@ func TestCacher(t *testing.T) {
 
 				_, _ = tc.Get(context.Background(), "", "")
 			})
+		}
+	})
+
+	t.Run("Clear removes the cache dir", func(t *testing.T) {
+		tc, gocmd, cleanup := setup(t)
+		defer cleanup()
+
+		e, _ := gocmd.Env(context.Background())
+		b, _ := ioutil.ReadAll(e)
+		gopath := string(b)
+
+		err := tc.Clear(context.TODO())
+		if err != nil {
+			t.Fatalf("Clear must not return any errors, but got %s", err)
+		}
+
+		dir := filepath.Join(gopath, "pkg", "dept")
+		if _, err := os.Stat(dir); err == nil {
+			t.Errorf("Clear must remove %s, but didn't", dir)
 		}
 	})
 }

@@ -87,6 +87,12 @@ func Run(args []string) (int, error) {
 				&deptfile.Workspace{},
 			), nil
 		},
+		"clean": func() (cli.Command, error) {
+			return cmd.NewClean(
+				newUI(),
+				toolcacher,
+			), nil
+		},
 		// exec is a special command.
 		// In mitchellh/cli, '-h' will be parsed in any positions.
 		// However, with exec command, '-h' may be passed as a flag of the target tool.

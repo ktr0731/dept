@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	lockCacherMockGet sync.RWMutex
+	lockCacherMockClear sync.RWMutex
+	lockCacherMockGet   sync.RWMutex
 )
 
 // CacherMock is a mock implementation of Cacher.
@@ -18,6 +19,9 @@ var (
 //
 //         // make and configure a mocked Cacher
 //         mockedCacher := &CacherMock{
+//             ClearFunc: func(ctx context.Context) error {
+// 	               panic("mock out the Clear method")
+//             },
 //             GetFunc: func(ctx context.Context, pkgName string, version string) (string, error) {
 // 	               panic("mock out the Get method")
 //             },
@@ -28,11 +32,19 @@ var (
 //
 //     }
 type CacherMock struct {
+	// ClearFunc mocks the Clear method.
+	ClearFunc func(ctx context.Context) error
+
 	// GetFunc mocks the Get method.
 	GetFunc func(ctx context.Context, pkgName string, version string) (string, error)
 
 	// calls tracks calls to the methods.
 	calls struct {
+		// Clear holds details about calls to the Clear method.
+		Clear []struct {
+			// Ctx is the ctx argument value.
+			Ctx context.Context
+		}
 		// Get holds details about calls to the Get method.
 		Get []struct {
 			// Ctx is the ctx argument value.
@@ -43,6 +55,37 @@ type CacherMock struct {
 			Version string
 		}
 	}
+}
+
+// Clear calls ClearFunc.
+func (mock *CacherMock) Clear(ctx context.Context) error {
+	if mock.ClearFunc == nil {
+		panic("CacherMock.ClearFunc: method is nil but Cacher.Clear was just called")
+	}
+	callInfo := struct {
+		Ctx context.Context
+	}{
+		Ctx: ctx,
+	}
+	lockCacherMockClear.Lock()
+	mock.calls.Clear = append(mock.calls.Clear, callInfo)
+	lockCacherMockClear.Unlock()
+	return mock.ClearFunc(ctx)
+}
+
+// ClearCalls gets all the calls that were made to Clear.
+// Check the length with:
+//     len(mockedCacher.ClearCalls())
+func (mock *CacherMock) ClearCalls() []struct {
+	Ctx context.Context
+} {
+	var calls []struct {
+		Ctx context.Context
+	}
+	lockCacherMockClear.RLock()
+	calls = mock.calls.Clear
+	lockCacherMockClear.RUnlock()
+	return calls
 }
 
 // Get calls GetFunc.

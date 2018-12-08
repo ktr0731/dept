@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -44,12 +45,17 @@ func setupEnv(t *testing.T) func() {
 	if err != nil {
 		t.Fatalf("failed to create a temp dir: %s", err)
 	}
+	gopath := filepath.Join(dir, "gopath")
+	oldGOPATH := os.Getenv("GOPATH")
+	os.Setenv("GOPATH", gopath)
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("failed to get the current working dir: %s", err)
 	}
 	os.Chdir(dir)
 	return func() {
+		os.Setenv("GOPATH", oldGOPATH)
 		os.Chdir(cwd)
 		os.RemoveAll(dir)
 	}
@@ -242,6 +248,20 @@ func TestGet(t *testing.T) {
 				}
 				if strings.Contains(out.String(), "github.com/ktr0731/dept") {
 					t.Errorf("list must not be list up 'github.com/ktr0731/dept':\n%s", out.String())
+				}
+			},
+		},
+		{
+			name: "clean up tool cache",
+			args: []string{"clean"},
+			assert: func(t *testing.T, out, eout *bytes.Buffer) {
+				b, err := exec.Command("go", "env", "GOPATH").Output()
+				if err != nil {
+					t.Fatalf("failed to get $GOPATH")
+				}
+				dir := filepath.Join(strings.TrimSpace(string(b)), "pkg", "dept")
+				if _, err := os.Stat(dir); err == nil {
+					t.Errorf("dept clean must remove %s, but didn't", dir)
 				}
 			},
 		},

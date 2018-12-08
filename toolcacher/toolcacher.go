@@ -24,6 +24,8 @@ type Cacher interface {
 	// Get finds a cached tool path which satisfies the passed pkgName and version.
 	// If it is not cached, Get builds a new one.
 	Get(ctx context.Context, pkgName, version string) (path string, err error)
+	// Clear removes all cached tools.
+	Clear(ctx context.Context) error
 }
 
 type cacher struct {
@@ -93,6 +95,15 @@ func (c *cacher) Get(ctx context.Context, pkgName, version string) (string, erro
 		return outPath, nil
 	}
 	return "", errors.Wrap(err, "failed to find the passed tool")
+}
+
+func (c *cacher) Clear(ctx context.Context) error {
+	logger.Printf("remove %s", c.rootPath)
+	err := os.RemoveAll(c.rootPath)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove all cached tools")
+	}
+	return nil
 }
 
 func (c *cacher) cachePath(pkgName, version string) string {
