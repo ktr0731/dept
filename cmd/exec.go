@@ -29,8 +29,20 @@ func (c *execCommand) UI() cli.Ui {
 	return c.ui
 }
 
+var execHelpTmpl = `Usage: dept exec <tool name>
+
+exec executes the passed tool with arguments.
+Tool name must be the same as output name.
+All available tools can be see bellow command.
+
+$ dept list -f '{{.Name}}'
+
+If the target tool has never been built, it will be
+executed after building it.
+`
+
 func (c *execCommand) Help() string {
-	return fmt.Sprintf("Usage: dept exec <tool name>")
+	return execHelpTmpl
 }
 
 func (c *execCommand) Synopsis() string {
