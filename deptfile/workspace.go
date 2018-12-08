@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ktr0731/dept/deptfile/internal/deptfileutil"
+	"github.com/ktr0731/dept/fileutil"
 	"github.com/ktr0731/modfile"
 	"github.com/pkg/errors"
 )
@@ -86,7 +86,7 @@ func (w *Workspace) Do(f func(projectDir string, gomod *File) error) error {
 		}
 
 		// ignore errors because it is auto-generated file.
-		deptfileutil.Copy("go.sum", filepath.Join(cwd, FileSumName))
+		fileutil.Copy("go.sum", filepath.Join(cwd, FileSumName))
 	}
 
 	if err := f(cwd, gomod); err != nil {
@@ -107,7 +107,7 @@ func (w *Workspace) Do(f func(projectDir string, gomod *File) error) error {
 		return errors.Wrap(err, "failed to write gotool.mod")
 	}
 
-	deptfileutil.Copy(filepath.Join(cwd, FileSumName), "go.sum")
+	fileutil.Copy(filepath.Join(cwd, FileSumName), "go.sum")
 
 	return nil
 }

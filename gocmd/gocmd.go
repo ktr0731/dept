@@ -41,6 +41,9 @@ type Command interface {
 	// List executes 'go list' with args.
 	// The result is represents as an io.Reader.
 	List(ctx context.Context, args ...string) (io.Reader, error)
+	// Env executes 'go env' with args
+	// The resutl is represents as an io.Reder.
+	Env(ctx context.Context, args ...string) (io.Reader, error)
 }
 
 // New returns a new instance of Command.
@@ -68,6 +71,10 @@ func (c *command) ModDownload(ctx context.Context) error {
 
 func (c *command) List(ctx context.Context, args ...string) (io.Reader, error) {
 	return runWithOutput(ctx, 10*time.Minute, "list", args)
+}
+
+func (c *command) Env(ctx context.Context, args ...string) (io.Reader, error) {
+	return runWithOutput(ctx, 1*time.Minute, "env", args)
 }
 
 func runWithOutput(ctx context.Context, timeout time.Duration, command string, args []string) (io.Reader, error) {

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"flag"
+	"syscall"
 )
 
 func NewOutputFlagValue(f *flag.FlagSet) *outputFlagValue {
@@ -10,4 +11,11 @@ func NewOutputFlagValue(f *flag.FlagSet) *outputFlagValue {
 
 func NormalizePath(path string) (repo, ver string, err error) {
 	return normalizePath(path)
+}
+
+func ChangeSyscallExec(f func(argv0 string, argv []string, envv []string) (err error)) func() {
+	syscallExec = f
+	return func() {
+		syscallExec = syscall.Exec
+	}
 }

@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -14,7 +13,9 @@ import (
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/gocmd"
 	"github.com/ktr0731/dept/logger"
+	"github.com/ktr0731/dept/toolcacher"
 	"github.com/mitchellh/cli"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -46,6 +47,12 @@ func Run(args []string) (int, error) {
 		}()
 	}
 
+	gocmd := gocmd.New()
+	toolcacher, err := toolcacher.New(gocmd)
+	if err != nil {
+		return 1, errors.Wrap(err, "failed to instantiate toolcacher")
+	}
+
 	app := cli.NewCLI(appName, appVersion)
 
 	app.Commands = map[string]cli.CommandFactory{
@@ -55,22 +62,23 @@ func Run(args []string) (int, error) {
 		"get": func() (cli.Command, error) {
 			return cmd.NewGet(
 				newUI(),
-				gocmd.New(),
+				gocmd,
 				&deptfile.Workspace{},
 			), nil
 		},
 		"remove": func() (cli.Command, error) {
 			return cmd.NewRemove(
 				newUI(),
-				gocmd.New(),
+				gocmd,
 				&deptfile.Workspace{},
 			), nil
 		},
 		"build": func() (cli.Command, error) {
 			return cmd.NewBuild(
 				newUI(),
-				gocmd.New(),
+				gocmd,
 				&deptfile.Workspace{},
+				toolcacher,
 			), nil
 		},
 		"list": func() (cli.Command, error) {
@@ -78,6 +86,20 @@ func Run(args []string) (int, error) {
 				newUI(),
 				&deptfile.Workspace{},
 			), nil
+		},
+		"clean": func() (cli.Command, error) {
+			return cmd.NewClean(
+				newUI(),
+				toolcacher,
+			), nil
+		},
+		// exec is a special command.
+		// In mitchellh/cli, '-h' will be parsed in any positions.
+		// However, with exec command, '-h' may be passed as a flag of the target tool.
+		// Therefore, we don't use mitchellh/cli's flag parsing mechanism under the special condition.
+		// Please see the below codition for more details.
+		"exec": func() (cli.Command, error) {
+			return cmd.NewExec(nil, nil, nil, nil), nil
 		},
 	}
 
@@ -109,6 +131,27 @@ func Run(args []string) (int, error) {
 	}
 
 	app.Args = f.Args()
+
+	// exec command special case.
+	if f.Arg(0) == "exec" {
+		// If first arg starts with '-', it is a flag of exec command.
+		// Currently, exec has no flags other than '--version' and '--help'.
+		// So, we ignore it and mitchellh/cli parses these args.
+		if !strings.HasPrefix(f.Arg(1), "-") {
+			// If there are no flags, it means the rest of args is
+			// target tool's args.
+			app.Args = []string{"exec"}
+		}
+		app.Commands["exec"] = func() (cli.Command, error) {
+			return cmd.NewExec(
+				f.Args()[1:],
+				newUI(),
+				&deptfile.Workspace{},
+				toolcacher,
+			), nil
+		}
+	}
+
 	return app.Run()
 }
 

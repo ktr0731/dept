@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/ktr0731/dept/deptfile"
-	"github.com/ktr0731/dept/deptfile/internal/deptfileutil"
+	"github.com/ktr0731/dept/fileutil"
 )
 
 var verbose = flag.Bool("verbose", false, "verbose mode")
@@ -43,11 +43,11 @@ func setupEnv(t *testing.T, cwd string) func() {
 		t.Fatalf("failed to get current dir: %s", err)
 	}
 
-	err = deptfileutil.Copy(filepath.Join(dir, deptfile.FileName), filepath.Join(cwd, deptfile.FileName))
+	err = fileutil.Copy(filepath.Join(dir, deptfile.FileName), filepath.Join(cwd, deptfile.FileName))
 	if err != nil {
 		t.Fatalf("failed to open and read testdata/gotool.mod: %s", err)
 	}
-	err = deptfileutil.Copy(filepath.Join(dir, deptfile.FileSumName), filepath.Join(cwd, deptfile.FileSumName))
+	err = fileutil.Copy(filepath.Join(dir, deptfile.FileSumName), filepath.Join(cwd, deptfile.FileSumName))
 	if err != nil {
 		t.Fatalf("failed to open and read testdata/gotool.mod: %s", err)
 	}

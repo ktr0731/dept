@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
 
 	"github.com/ktr0731/dept/app"
+	"github.com/ktr0731/dept/cmd"
 	"go.uber.org/goleak"
 )
 
@@ -43,12 +45,17 @@ func setupEnv(t *testing.T) func() {
 	if err != nil {
 		t.Fatalf("failed to create a temp dir: %s", err)
 	}
+	gopath := filepath.Join(dir, "gopath")
+	oldGOPATH := os.Getenv("GOPATH")
+	os.Setenv("GOPATH", gopath)
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("failed to get the current working dir: %s", err)
 	}
 	os.Chdir(dir)
 	return func() {
+		os.Setenv("GOPATH", oldGOPATH)
 		os.Chdir(cwd)
 		os.RemoveAll(dir)
 	}
@@ -61,7 +68,7 @@ func TestGet(t *testing.T) {
 	cases := []testcase{
 		{
 			name: "fail to get because gotool.mod missing",
-			args: []string{"get", "github.com/ktr0731/salias"},
+			args: []string{"get", "github.com/ktr0731/dept"},
 			code: 1,
 		},
 		{
@@ -70,14 +77,24 @@ func TestGet(t *testing.T) {
 		},
 		{
 			name: "get a new tool",
-			args: []string{"get", "github.com/ktr0731/salias"},
+			args: []string{"get", "github.com/ktr0731/dept@v0.1.0"},
 		},
 		{
 			name: "list tools",
-			args: []string{"list"},
+			args: []string{"list", "-f", "{{.Path}}", "github.com/ktr0731/dept"},
 			assert: func(t *testing.T, out, eout *bytes.Buffer) {
-				if !strings.Contains(out.String(), "github.com/ktr0731/salias") {
-					t.Errorf("list must be list up 'github.com/ktr0731/salias', but missing:\n%s", out.String())
+				if s := strings.TrimSpace(out.String()); s != "github.com/ktr0731/dept" {
+					t.Errorf("list must be list up 'github.com/ktr0731/dept', but missing:\n%s", s)
+				}
+			},
+		},
+		{
+			name: "exec dept@v0.1.0",
+			args: []string{"exec", "dept", "--version"},
+			assert: func(t *testing.T, out, eout *bytes.Buffer) {
+				expected := "dept v0.1.0"
+				if s := strings.TrimSpace(out.String()); s != expected {
+					t.Errorf("expected: %s, but got %s", expected, s)
 				}
 			},
 		},
@@ -94,8 +111,8 @@ func TestGet(t *testing.T) {
 			name: "list tools again",
 			args: []string{"list"},
 			assert: func(t *testing.T, out, eout *bytes.Buffer) {
-				if !strings.Contains(out.String(), "github.com/ktr0731/salias") {
-					t.Errorf("list must be list up 'github.com/ktr0731/salias', but missing:\n%s", out.String())
+				if !strings.Contains(out.String(), "github.com/ktr0731/dept") {
+					t.Errorf("list must be list up 'github.com/ktr0731/dept', but missing:\n%s", out.String())
 				}
 				if !strings.Contains(out.String(), "github.com/mitchellh/gox") {
 					t.Errorf("list must be list up 'github.com/mitchellh/gox', but missing:\n%s", out.String())
@@ -209,15 +226,15 @@ func TestGet(t *testing.T) {
 				if os.IsNotExist(err) {
 					t.Error("grpcurl must be installed as 'gc', but not found")
 				}
-				_, err = os.Stat(filepath.Join("bin", "salias"))
+				_, err = os.Stat(filepath.Join("bin", "dept"))
 				if os.IsNotExist(err) {
-					t.Error("salias must be installed, but not found")
+					t.Error("dept must be installed, but not found")
 				}
 			},
 		},
 		{
 			name: "remove all tools",
-			args: []string{"remove", "github.com/ktr0731/itunes-cli/itunes", "github.com/fullstorydev/grpcurl/cmd/grpcurl", "github.com/ktr0731/salias"},
+			args: []string{"remove", "github.com/ktr0731/itunes-cli/itunes", "github.com/fullstorydev/grpcurl/cmd/grpcurl", "github.com/ktr0731/dept"},
 		},
 		{
 			name: "all tools are uninstalled",
@@ -229,8 +246,22 @@ func TestGet(t *testing.T) {
 				if strings.Contains(out.String(), "github.com/fullstorydev/grpcurl/cmd/grpcurl") {
 					t.Errorf("list must not be list up 'github.com/fullstorydev/grpcurl/cmd/grpcurl':\n%s", out.String())
 				}
-				if strings.Contains(out.String(), "github.com/ktr0731/salias") {
-					t.Errorf("list must not be list up 'github.com/ktr0731/salias':\n%s", out.String())
+				if strings.Contains(out.String(), "github.com/ktr0731/dept") {
+					t.Errorf("list must not be list up 'github.com/ktr0731/dept':\n%s", out.String())
+				}
+			},
+		},
+		{
+			name: "clean up tool cache",
+			args: []string{"clean"},
+			assert: func(t *testing.T, out, eout *bytes.Buffer) {
+				b, err := exec.Command("go", "env", "GOPATH").Output()
+				if err != nil {
+					t.Fatalf("failed to get $GOPATH")
+				}
+				dir := filepath.Join(strings.TrimSpace(string(b)), "pkg", "dept")
+				if _, err := os.Stat(dir); err == nil {
+					t.Errorf("dept clean must remove %s, but didn't", dir)
 				}
 			},
 		},
@@ -286,6 +317,12 @@ func do(t *testing.T, c testcase) {
 	var err error
 	out, eout, cleanup := setupOutput()
 	defer cleanup()
+
+	if c.args[0] == "exec" {
+		cleanup := cmd.ChangeSyscallExecE2E(out, eout)
+		defer cleanup()
+	}
+
 	defer func() func() {
 		fmt.Printf("   --- RUN : %s", c.name)
 		return func() {
@@ -319,7 +356,6 @@ func do(t *testing.T, c testcase) {
 			if eout.String() != "" {
 				fmt.Println(eout.String())
 			}
-			t.Fail()
 		}
 	}
 }

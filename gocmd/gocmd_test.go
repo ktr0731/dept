@@ -27,6 +27,10 @@ func TestCommand(t *testing.T) {
 			_, err := cmd.List(ctx, "github.com/ktr0731/dept")
 			return err
 		},
+		"Env": func(ctx context.Context, cmd gocmd.Command) error {
+			_, err := cmd.Env(ctx, "GOPATH")
+			return err
+		},
 	}
 
 	runNormalTest := func(t *testing.T, cmd gocmd.Command, c func(ctx context.Context, cmd gocmd.Command) error) {
