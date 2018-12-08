@@ -39,6 +39,9 @@ $ dept list -f '{{.Name}}'
 
 If the target tool has never been built, it will be
 executed after building it.
+
+Cached tools are stored in $GOPATH/pkg/dept. If you want to
+clear cached tools, please run 'dept clean'.
 `
 
 func (c *execCommand) Help() string {

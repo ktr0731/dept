@@ -46,7 +46,7 @@ func (c *buildCommand) Help() string {
 }
 
 func (c *buildCommand) Synopsis() string {
-	return fmt.Sprintf("Build all tools based on %s", deptfile.FileName)
+	return "Build all tools and copy these to the specified dir"
 }
 
 func (c *buildCommand) Run(args []string) int {
