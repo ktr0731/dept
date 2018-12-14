@@ -5,7 +5,7 @@ jobs:
     docker:
       - image: circleci/golang:1.11.2
         environment:
-          GO111MODULE: on
+          GO111MODULE: "on"
           GOPATH: /go
 
     steps:
