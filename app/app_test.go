@@ -1,10 +1,25 @@
 package app
 
 import (
+	"os/exec"
+	"strings"
 	"testing"
 
 	version "github.com/hashicorp/go-version"
 )
+
+func Test_version(t *testing.T) {
+	out, err := exec.Command("git", "tag").Output()
+	if err != nil {
+		t.Fatalf("failed to get Git tags: %s", err)
+	}
+	sp := strings.Split(strings.TrimSpace(string(out)), "\n")
+	cmdVer := sp[len(sp)-1]
+	appVer := "v" + appVersion
+	if appVer != cmdVer {
+		t.Errorf("app: %s, but Git tag: %s", appVer, cmdVer)
+	}
+}
 
 func Test_isCompatibleGoVersion(t *testing.T) {
 	cases := []struct {
