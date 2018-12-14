@@ -28,6 +28,5 @@ comment:
   require_changes: no
 
 ignore:
-  - .
   - logger
   - fileutil
