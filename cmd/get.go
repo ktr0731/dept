@@ -100,7 +100,7 @@ Examples:
     $ dept get github.com/mitchellh/gox@v0.3.0
     $ dept get github.com/mitchellh/gox@v0.1.0
 
-    $ dept get -o ci github.com/golangci/golangci-lint/cmd/golangci-lint
+    $ dept get -o it github.com/ktr0731/itunes-cli/itunes
 
     $ dept get -d bin github.com/mitchellh/gox
     $ GOBIN=$PWD/bin dept get github.com/mitchellh/gox

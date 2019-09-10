@@ -77,14 +77,18 @@ func Run(args []string) (int, error) {
 			return cmd.NewBuild(
 				newUI(),
 				gocmd,
-				&deptfile.Workspace{},
+				&deptfile.Workspace{
+					DoNotUpdate: true,
+				},
 				toolcacher,
 			), nil
 		},
 		"list": func() (cli.Command, error) {
 			return cmd.NewList(
 				newUI(),
-				&deptfile.Workspace{},
+				&deptfile.Workspace{
+					DoNotUpdate: true,
+				},
 			), nil
 		},
 		"clean": func() (cli.Command, error) {
@@ -146,7 +150,9 @@ func Run(args []string) (int, error) {
 			return cmd.NewExec(
 				f.Args()[1:],
 				newUI(),
-				&deptfile.Workspace{},
+				&deptfile.Workspace{
+					DoNotUpdate: true,
+				},
 				toolcacher,
 			), nil
 		}
