@@ -243,8 +243,8 @@ func TestGetRun(t *testing.T) {
 				}
 
 				if c.update {
-					if n := len(mockGoCMD.GetCalls()); n != 2 {
-						t.Errorf("Get must be called twice, but actual %d", n)
+					if n := len(mockGoCMD.GetCalls()); n < 2 {
+						t.Errorf("Get must be called twice or more, but actual %d", n)
 					}
 				} else {
 					if n := len(mockGoCMD.GetCalls()); n != 1 {

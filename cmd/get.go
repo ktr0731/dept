@@ -100,7 +100,7 @@ Examples:
     $ dept get github.com/mitchellh/gox@v0.3.0
     $ dept get github.com/mitchellh/gox@v0.1.0
 
-    $ dept get -o ci github.com/golangci/golangci-lint/cmd/golangci-lint
+    $ dept get -o it github.com/ktr0731/itunes-cli/itunes
 
     $ dept get -d bin github.com/mitchellh/gox
     $ GOBIN=$PWD/bin dept get github.com/mitchellh/gox
@@ -210,8 +210,24 @@ func (c *getCommand) Run(args []string) int {
 }
 
 // initModPaths parses passed paths and collect its module roots.
-// initModPaths must be call inside of a workspace.
+// initModPaths must be called inside of a workspace.
 func (c *getCommand) initModPaths(ctx context.Context, argsWithFlag []struct{ Out, Path string }, args []string) ([]*path, error) {
+	getPaths := make([]string, 0, len(argsWithFlag))
+	for _, a := range argsWithFlag {
+		if len(a.Path) > 0 && a.Path[0] == '-' {
+			return nil, errors.Errorf("found '%s' after args. all flags must be put before args", a.Path)
+		}
+		getPaths = append(getPaths, a.Path)
+	}
+
+	if len(getPaths) > 0 {
+		// Get new dependencies to prevent updating go.mod by 'go list'.
+		logger.Println("getting all dependencies passed as command-line args")
+		if err := c.gocmd.Get(ctx, getPaths...); err != nil {
+			return nil, errors.Wrap(err, "failed to get additional dependencies")
+		}
+	}
+
 	found := map[string]interface{}{}
 
 	paths := make([]*path, 0, len(argsWithFlag)+len(args))
@@ -222,9 +238,6 @@ func (c *getCommand) initModPaths(ctx context.Context, argsWithFlag []struct{ Ou
 	eg, ctx := errgroup.WithContext(ctx)
 
 	appendPath := func(p, out string) error {
-		if len(p) > 0 && p[0] == '-' {
-			return errors.Errorf("found '%s' after args. all flags must be put before args", p)
-		}
 		repo, ver, err := normalizePath(p)
 		if err != nil {
 			return err

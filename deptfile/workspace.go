@@ -28,8 +28,11 @@ type Workspace struct {
 	// SourcePath is the root path for finding go.mod and go.sum.
 	// If SourcePath is empty, SourcePath is the Git project root.
 	SourcePath string
-	// DoNotCopy don't copy gotool.mod and gotool.sum to the workspace.
+	// DoNotCopy doesn't copy gotool.mod and gotool.sum to the workspace.
 	DoNotCopy bool
+	// DoNotUpdate doesn't update gotool.mod and gotool.sum.
+	// It is used for commands which doesn't need to update gotool.mod such like 'dept build'.
+	DoNotUpdate bool
 }
 
 // Do copies from the project gotool.mod to a temporary workspace
@@ -91,6 +94,10 @@ func (w *Workspace) Do(f func(projectDir string, gomod *File) error) error {
 
 	if err := f(cwd, gomod); err != nil {
 		return err
+	}
+
+	if w.DoNotUpdate {
+		return nil
 	}
 
 	df, err := convertGoModToDeptfile("go.mod", gomod)

@@ -13,6 +13,9 @@ Go tools like [Golint](https://github.com/golang/lint), [errcheck](https://githu
 
 `dept` is based on Go modules. All dependency resolution are provided by `go mod` commands.
 
+## Requirements
+- Go v1.13 or later
+
 ## Basic usage
 At first, let's create `gotool.mod` in a project root by the following command.
 All tools which are managed by `dept` are written to `gotool.mod`.

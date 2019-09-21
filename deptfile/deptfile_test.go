@@ -13,17 +13,10 @@ import (
 	"github.com/ktr0731/dept/fileutil"
 )
 
-var verbose = flag.Bool("verbose", false, "verbose mode")
-var l *log.Logger
-
-func init() {
-	flag.Parse()
-	if *verbose {
-		l = log.New(os.Stderr, "[debug] ", log.LstdFlags|log.Lshortfile)
-	} else {
-		l = log.New(ioutil.Discard, "[debug] ", log.Lshortfile)
-	}
-}
+var (
+	verbose = flag.Bool("verbose", false, "verbose mode")
+	l       *log.Logger
+)
 
 // setupEnv creates a new temp dir for testing.
 // Also setupEnv copies go.mod and go.sum from cwd to the temp dir.
@@ -60,6 +53,13 @@ func setupEnv(t *testing.T, cwd string) func() {
 }
 
 func TestCreate(t *testing.T) {
+	flag.Parse()
+	if *verbose {
+		l = log.New(os.Stderr, "[debug] ", log.LstdFlags|log.Lshortfile)
+	} else {
+		l = log.New(ioutil.Discard, "[debug] ", log.Lshortfile)
+	}
+
 	t.Run("Create must return ErrAlreadyExist because deptfile exists", func(t *testing.T) {
 		cleanup := setupEnv(t, filepath.Join("testdata", "normal"))
 		defer cleanup()
