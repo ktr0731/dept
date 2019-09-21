@@ -3,7 +3,7 @@ jobs:
   build:
     working_directory: /go/dept
     docker:
-      - image: circleci/golang:1.11.2
+      - image: circleci/golang:1.13
         environment:
           GO111MODULE: "on"
           GOPATH: /go
