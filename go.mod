@@ -5,8 +5,8 @@ go 1.13
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/go-cmp v0.2.0
+	github.com/hashicorp/go-multierror v1.0.0
 	github.com/hashicorp/go-version v1.0.0
-	github.com/ktr0731/go-multierror v0.0.0-20171204182908-b7773ae21874
 	github.com/ktr0731/modfile v1.11.2
 	github.com/mattn/go-isatty v0.0.4 // indirect
 	github.com/mitchellh/cli v1.0.0
