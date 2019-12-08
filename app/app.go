@@ -20,7 +20,7 @@ import (
 
 const (
 	appName    = "dept"
-	appVersion = "0.1.2"
+	appVersion = "0.1.3"
 )
 
 var minVersion = version.Must(version.NewVersion("1.11.0"))
