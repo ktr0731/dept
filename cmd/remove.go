@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/ktr0731/dept/deptfile"
 	"github.com/ktr0731/dept/filegen"
 	"github.com/ktr0731/dept/gocmd"
 	"github.com/ktr0731/dept/logger"
-	multierror "github.com/ktr0731/go-multierror"
 	"github.com/mitchellh/cli"
 	"github.com/pkg/errors"
 )
